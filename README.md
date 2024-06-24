@@ -6,5 +6,5 @@ XAI plays a pivotal role by making these sophisticated models transparent, allow
 ![Explainable AI types](image_outputs/XAI.png "XAI")
 
 This synergy of multimodal modeling with XAI not only pushes the boundaries of what is achievable in medical diagnostics but also builds trust and facilitates wider adoption of AI technologies in clinical settings.
-![Results of using LIME on model](images/results.png "Intial Results")
+![Results of using LIME on model](image_outputs/Spectrogram_saliency_map.png "Intial LIME Results")
 
