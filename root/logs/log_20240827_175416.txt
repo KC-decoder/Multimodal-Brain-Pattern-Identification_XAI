@@ -1,0 +1,45 @@
+2024-08-27 17:54:16,576 - INFO - Starting the training and validation process.
+2024-08-27 17:54:16,645 - INFO - Loaded metadata from /data2/users/koushani/HMS_data
+2024-08-27 17:54:16,727 - INFO - Created K-Fold splits.
+2024-08-27 17:54:16,740 - INFO - Processing fold 1/5
+2024-08-27 17:54:16,751 - INFO - Processing fold 2/5
+2024-08-27 17:54:16,761 - INFO - Processing fold 3/5
+2024-08-27 17:54:16,771 - INFO - Processing fold 4/5
+2024-08-27 17:54:16,781 - INFO - Processing fold 5/5
+2024-08-27 17:54:16,814 - INFO - Size of the train dataset: 85649
+2024-08-27 17:54:16,814 - INFO - Size of the valid dataset: 21529
+2024-08-27 17:55:07,972 - INFO - Batch data shape: torch.Size([256, 1, 37, 3000])
+2024-08-27 17:55:07,973 - INFO - Batch labels shape: torch.Size([256, 6])
+2024-08-27 17:55:28,071 - INFO - took 71.25450825691223 seconds to display dataloader info.
+2024-08-27 17:55:28,892 - INFO - EnhancedEEGNetAttention(
+  (conv1): Conv2d(1, 32, kernel_size=(1, 64), stride=(1, 1), padding=same, bias=False)
+  (batchnorm1): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (depthwiseConv): Conv2d(32, 64, kernel_size=(37, 1), stride=(1, 1), groups=32, bias=False)
+  (batchnorm2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (activation): ELU(alpha=1.0)
+  (avg_pool1): AvgPool2d(kernel_size=(1, 4), stride=(1, 4), padding=0)
+  (dropout1): Dropout(p=0.5, inplace=False)
+  (separableConv1): Conv2d(64, 128, kernel_size=(1, 16), stride=(1, 1), padding=same, bias=False)
+  (batchnorm3): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (separableConv2): Conv2d(128, 256, kernel_size=(1, 8), stride=(1, 1), padding=same, bias=False)
+  (batchnorm4): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (avg_pool2): AvgPool2d(kernel_size=(1, 8), stride=(1, 8), padding=0)
+  (dropout2): Dropout(p=0.5, inplace=False)
+  (conv2): Conv2d(256, 512, kernel_size=(1, 4), stride=(1, 1), padding=same, bias=False)
+  (batchnorm5): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (activation2): ELU(alpha=1.0)
+  (avg_pool3): AvgPool2d(kernel_size=(1, 4), stride=(1, 4), padding=0)
+  (dropout3): Dropout(p=0.5, inplace=False)
+  (attention_layer): MultiheadAttention(
+    (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
+  )
+  (flatten): Flatten(start_dim=1, end_dim=-1)
+  (dense1): Linear(in_features=11776, out_features=512, bias=True)
+  (dropout4): Dropout(p=0.5, inplace=False)
+  (dense2): Linear(in_features=512, out_features=256, bias=True)
+  (dropout5): Dropout(p=0.5, inplace=False)
+  (dense3): Linear(in_features=256, out_features=6, bias=True)
+  (log_softmax): LogSoftmax(dim=1)
+)
+2024-08-27 17:55:29,035 - INFO - Training EEG Model.
+2024-08-27 17:55:29,037 - INFO - Starting Epoch 1/50
