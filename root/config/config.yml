@@ -3,11 +3,11 @@ debug: false
 AUGMENT: false
 VALIDATION_FRAC: 0.4
 AUGMENTATION_FRACTION: 0.05
-EPOCHS: 50
+EPOCHS: 0
 SKIP_ASSERT : false
 
 # Checkpointing
-checkpoint_dir: "/eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/root/checkpoints"
+checkpoint_dir: "/eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir"
 log_directory: "/eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/root/"
 save_dir: "/eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/root/plots/"
 last_optimizer: null
@@ -25,6 +25,7 @@ test_spectr: "${root_dir}/test_spectr/"
 seed: 42
 gpu_idx: 0
 device: "cuda"
+initial_lr: 0.005
 
 # EEG settings
 EEG_COLUMNS:
@@ -258,10 +259,10 @@ sampling_rate: 200  # Hz
 nsamples: 10000  # seq_length * sampling_rate
 out_samples: 2000  # nsamples // 5
 
-debug_input_size: 4096
+debug_input_size: 32
 in_chans: 1
 
-batch_size: 256
-num_workers: 50
+batch_size: 1024
+num_workers: 120
 fixed_length: 3000
 image_size: [400, 300]

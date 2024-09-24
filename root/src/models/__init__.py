@@ -1,1 +1,1 @@
-from .models import EnhancedEEGNetAttention, Spectrogram_Model, MultimodalModel
+from .models import  Spectrogram_Model, MultimodalModel, EEGNetResidual, EEGNetResidualLSTM, EEGNetTransformer, EEGNetAttentionDeep, EEGSeizureDetectionModel, EEGNet, DeepConvNet

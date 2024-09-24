@@ -1,0 +1,70 @@
+2024-09-02 21:07:26,642 - INFO - Starting the training and validation process.
+2024-09-02 21:07:26,709 - INFO - Loaded metadata from /data2/users/koushani/HMS_data
+2024-09-02 21:07:27,036 - INFO - Created K-Fold splits.
+2024-09-02 21:07:27,052 - INFO - Processing fold 1/5
+2024-09-02 21:07:27,063 - INFO - Processing fold 2/5
+2024-09-02 21:07:27,072 - INFO - Processing fold 3/5
+2024-09-02 21:07:27,082 - INFO - Processing fold 4/5
+2024-09-02 21:07:27,092 - INFO - Processing fold 5/5
+2024-09-02 21:07:27,093 - INFO - Size of the train dataset: 85649
+2024-09-02 21:07:27,094 - INFO - Size of the valid dataset: 21529
+2024-09-02 21:13:50,832 - INFO - Batch data shape: torch.Size([1024, 1, 37, 3000])
+2024-09-02 21:13:50,833 - INFO - Batch labels shape: torch.Size([1024, 6])
+2024-09-02 21:13:52,981 - INFO - took 385.88647842407227 seconds to display dataloader info.
+2024-09-02 21:13:53,481 - INFO - EEGNetResidual(
+  (conv1): Conv2d(1, 8, kernel_size=(1, 64), stride=(1, 1), padding=same, bias=False)
+  (batchnorm1): BatchNorm2d(8, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (depthwiseConv): Conv2d(8, 16, kernel_size=(37, 1), stride=(1, 1), groups=8, bias=False)
+  (batchnorm2): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (activation1): ELU(alpha=1.0)
+  (avg_pool1): AvgPool2d(kernel_size=(1, 4), stride=(1, 4), padding=0)
+  (dropout1): Dropout(p=0.5, inplace=False)
+  (separableConv): Conv2d(16, 16, kernel_size=(1, 16), stride=(1, 1), padding=same, bias=False)
+  (batchnorm3): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (activation2): ELU(alpha=1.0)
+  (avg_pool2): AvgPool2d(kernel_size=(1, 8), stride=(1, 8), padding=0)
+  (dropout2): Dropout(p=0.5, inplace=False)
+  (residual_conv): Conv2d(16, 16, kernel_size=(1, 1), stride=(1, 2), bias=False)
+  (residual_batchnorm): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (residual_pool): AvgPool2d(kernel_size=(1, 4), stride=(1, 4), padding=0)
+  (flatten): Flatten(start_dim=1, end_dim=-1)
+  (dense): Linear(in_features=1488, out_features=6, bias=True)
+  (log_softmax): LogSoftmax(dim=1)
+)
+2024-09-02 21:13:53,598 - INFO - Training EEG Model.
+2024-09-02 21:13:53,600 - INFO - Starting Epoch 1/100
+2024-09-02 21:31:18,167 - INFO - Epoch 1/100 - Train Loss: 0.00126, Reg Loss: 0.00053, Train Accuracy: 52.09518%
+2024-09-02 21:31:18,168 - INFO - Epoch 1/100 - Valid Loss: 0.00173, Valid Accuracy: 34.89247%
+2024-09-02 21:31:18,170 - INFO - Learning Rate: 0.004000
+2024-09-02 21:31:18,197 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/root/checkpoints/eeg_checkpoint.pth.tar
+2024-09-02 21:31:18,197 - INFO - Starting Epoch 2/100
+2024-09-02 21:48:25,551 - INFO - Epoch 2/100 - Train Loss: 0.00109, Reg Loss: 0.00029, Train Accuracy: 60.12796%
+2024-09-02 21:48:25,552 - INFO - Epoch 2/100 - Valid Loss: 0.00160, Valid Accuracy: 40.26662%
+2024-09-02 21:48:25,552 - INFO - Learning Rate: 0.004000
+2024-09-02 21:48:25,572 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/root/checkpoints/eeg_checkpoint.pth.tar
+2024-09-02 21:48:25,572 - INFO - Starting Epoch 3/100
+2024-09-02 22:05:34,604 - INFO - Epoch 3/100 - Train Loss: 0.00109, Reg Loss: 0.00021, Train Accuracy: 60.42569%
+2024-09-02 22:05:34,605 - INFO - Epoch 3/100 - Valid Loss: 0.00160, Valid Accuracy: 38.26467%
+2024-09-02 22:05:34,605 - INFO - Learning Rate: 0.004000
+2024-09-02 22:05:34,624 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/root/checkpoints/eeg_checkpoint.pth.tar
+2024-09-02 22:05:34,624 - INFO - Starting Epoch 4/100
+2024-09-02 22:22:43,790 - INFO - Epoch 4/100 - Train Loss: 0.00110, Reg Loss: 0.00018, Train Accuracy: 60.40000%
+2024-09-02 22:22:43,791 - INFO - Epoch 4/100 - Valid Loss: 0.00149, Valid Accuracy: 43.11394%
+2024-09-02 22:22:43,791 - INFO - Learning Rate: 0.004000
+2024-09-02 22:22:43,810 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/root/checkpoints/eeg_checkpoint.pth.tar
+2024-09-02 22:22:43,810 - INFO - Starting Epoch 5/100
+2024-09-02 22:39:49,645 - INFO - Epoch 5/100 - Train Loss: 0.00109, Reg Loss: 0.00017, Train Accuracy: 60.30076%
+2024-09-02 22:39:49,645 - INFO - Epoch 5/100 - Valid Loss: 0.00150, Valid Accuracy: 41.95736%
+2024-09-02 22:39:49,645 - INFO - Learning Rate: 0.004000
+2024-09-02 22:39:49,665 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/root/checkpoints/eeg_checkpoint.pth.tar
+2024-09-02 22:39:49,665 - INFO - Starting Epoch 6/100
+2024-09-02 22:56:56,781 - INFO - Epoch 6/100 - Train Loss: 0.00109, Reg Loss: 0.00017, Train Accuracy: 60.51443%
+2024-09-02 22:56:56,782 - INFO - Epoch 6/100 - Valid Loss: 0.00161, Valid Accuracy: 39.54201%
+2024-09-02 22:56:56,782 - INFO - Learning Rate: 0.004000
+2024-09-02 22:56:56,802 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/root/checkpoints/eeg_checkpoint.pth.tar
+2024-09-02 22:56:56,803 - INFO - Starting Epoch 7/100
+2024-09-02 23:14:01,972 - INFO - Epoch 7/100 - Train Loss: 0.00108, Reg Loss: 0.00017, Train Accuracy: 60.59732%
+2024-09-02 23:14:01,976 - INFO - Epoch 7/100 - Valid Loss: 0.00158, Valid Accuracy: 40.84723%
+2024-09-02 23:14:01,976 - INFO - Learning Rate: 0.003980
+2024-09-02 23:14:01,996 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/root/checkpoints/eeg_checkpoint.pth.tar
+2024-09-02 23:14:01,996 - INFO - Starting Epoch 8/100

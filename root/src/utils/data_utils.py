@@ -4,6 +4,8 @@ from sklearn.metrics import precision_score, recall_score, f1_score
 import torch
 import os
 import yaml
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.signal import butter, lfilter, iirnotch, filtfilt
@@ -34,6 +36,23 @@ TEST_SPECTR = CFG['test_spectr']
 def is_entirely_nan(eeg_id):
     eeg_data = load_train_eeg_frame(eeg_id)
     return np.isnan(eeg_data.values).all()
+
+def mirror_eeg(data):
+    # Extract the relevant lists from the config
+    LL = CFG['RL']  # The 'RL' key is actually referencing the 'LL' list
+    LP = CFG['LP']
+    RL = CFG['RP']  # The 'RP' key is referencing the 'LP' list
+    RP = CFG['RL']  # The 'RL' key is also referencing the 'LL' list
+
+    # Assuming feature_to_index is a dictionary that maps feature names to indices
+    indx1 = [feature_to_index[x] for x in LL + LP if x in feature_to_index]
+    indx2 = [feature_to_index[x] for x in RL + RP if x in feature_to_index]
+
+    # Swap the data using the indices
+    data[indx1, :], data[indx2, :] = data[indx2, :], data[indx1, :]
+    
+    return data
+
 
 def load_train_eeg_frame(id):
     # Ensure the ID is an integer to avoid issues with file name construction
@@ -214,20 +233,15 @@ def select_and_map_channels(data, channels, differential_channels_start_index):
     selected_data = data[selected_indices + differential_indices, :]
     return selected_data
 
-def mirror_eeg(data, LL, LP, RL, RP, feature_to_index):
-    indx1 = [feature_to_index[x] for x in LL + LP if x in feature_to_index]
-    indx2 = [feature_to_index[x] for x in RL + RP if x in feature_to_index]
-    data[indx1, :], data[indx2, :] = data[indx2, :], data[indx1, :]
-    return data
-
 def labels_to_probabilities(labels, num_classes):
     labels = torch.eye(num_classes)[labels]
     return labels
 
 
-def load_checkpoint(checkpoint_dir, checkpoint_filename, model, optimizer):
+def load_checkpoint(checkpoint_dir, checkpoint_filename, model, optimizer, new_checkpoint=False):
     checkpoint_path = os.path.join(checkpoint_dir, checkpoint_filename)
-    if os.path.isfile(checkpoint_path):
+    
+    if not new_checkpoint and os.path.isfile(checkpoint_path):
         print(f"Loading checkpoint '{checkpoint_path}'")
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint['state_dict'])
@@ -238,19 +252,20 @@ def load_checkpoint(checkpoint_dir, checkpoint_filename, model, optimizer):
         train_accuracies = checkpoint['train_accuracies']
         valid_accuracies = checkpoint['valid_accuracies']
         lr_scheduler = checkpoint['lr_scheduler']
-        regularization_losses = checkpoint['regularization_losses']
         print(f"Loaded checkpoint from epoch {start_epoch}")
     else:
-        print(f"No checkpoint found at '{checkpoint_path}'")
+        if new_checkpoint:
+            print(f"Creating a new checkpoint at '{checkpoint_path}'")
+        else:
+            print(f"No checkpoint found at '{checkpoint_path}', starting fresh.")
         start_epoch = 0
         train_losses = []
         valid_losses = []
         train_accuracies = []
         valid_accuracies = []
         lr_scheduler = []
-        regularization_losses = []
 
-    return start_epoch, train_losses, valid_losses, train_accuracies, valid_accuracies, lr_scheduler, regularization_losses
+    return start_epoch, train_losses, valid_losses, train_accuracies, valid_accuracies, lr_scheduler
 
 def save_checkpoint(state, checkpoint_dir, checkpoint_filename):
     checkpoint_path = os.path.join(checkpoint_dir, checkpoint_filename)
@@ -320,12 +335,6 @@ def createTrainTestSplit(metadata, fold_indices, fold_idx):
 
     train_metadata = metadata[metadata['eeg_id'].isin(train_ids)]
     valid_metadata = metadata[metadata['eeg_id'].isin(valid_ids)]
-
-    if CFG['AUGMENT']:
-        # Select 10% of train_metadata for augmentation
-        augmentation_size = int(len(train_metadata) * CFG['AUGMENTATION_FRACTION'])
-        augmentation_metadata = train_metadata.sample(augmentation_size)
-        return train_metadata, valid_metadata, augmentation_metadata
 
     return train_metadata, valid_metadata
 
@@ -426,10 +435,8 @@ def plot_metrics(train_metrics, valid_metrics, metric_name, save_dir=CFG['save_d
 
     print(f"{metric_name} plot saved at {plot_path}")
 
-import os
-import matplotlib.pyplot as plt
 
-def plot_learning_rate_and_regularization(lr_scheduler, regularization_losses, save_dir='root/plots/'):
+def plot_learning_rate_and_regularization(lr_scheduler, regularization_losses, save_dir=CFG['save_dir']):
     """
     Plot and save the learning rate schedule and regularization loss over epochs.
 
@@ -464,7 +471,7 @@ def plot_learning_rate_and_regularization(lr_scheduler, regularization_losses, s
 
     print(f"Learning Rate and Regularization Loss plot saved at {plot_path}")
 
-def plot_accuracies(train_accuracies, valid_accuracies, save_dir='root/plots/'):
+def plot_accuracies(train_accuracies, valid_accuracies, save_dir=CFG['save_dir']):
     """
     Plot and save the training and validation accuracies over epochs.
 
@@ -495,3 +502,70 @@ def plot_accuracies(train_accuracies, valid_accuracies, save_dir='root/plots/'):
     plt.close()
 
     print(f"Training and Validation Accuracy plot saved at {plot_path}")
+    
+    
+    
+def plot_confusion_matrix(y_true, y_pred, classes, save_dir=CFG['save_dir'], normalize=False):
+    """
+    Plot and save the confusion matrix.
+
+    Args:
+    - y_true (list): True labels.
+    - y_pred (list): Predicted labels.
+    - classes (list): List of class names.
+    - save_dir (str): Directory to save the generated plot.
+    - normalize (bool): If True, normalize the confusion matrix.
+    """
+    cm = confusion_matrix(y_true, y_pred)
+    
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm, annot=True, fmt=".2f" if normalize else "d", cmap='Blues', xticklabels=classes, yticklabels=classes)
+    plt.title('Confusion Matrix')
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.tight_layout()
+
+    # Ensure the save directory exists
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Save the plot with the specified name
+    plot_path = os.path.join(save_dir, 'Confusion_Matrix.png')
+    plt.savefig(plot_path)
+    plt.close()
+
+    print(f"Confusion matrix plot saved at {plot_path}")
+
+def create_confusion_matrix(model, dataloader, classes, device=CFG['device'], checkpoint_dir=CFG['checkpoint_dir'], checkpoint_filename='eeg_checkpoint.pth.tar', save_dir=CFG['save_dir']):
+    """
+    Load checkpoint, make predictions on the validation set, and plot the confusion matrix.
+
+    Args:
+    - model (torch.nn.Module): The model architecture.
+    - dataloader (torch.utils.data.DataLoader): DataLoader for validation data.
+    - classes (list): List of class names.
+    - device (str): Device to perform computation on ('cuda' or 'cpu').
+    - checkpoint_dir (str): Directory containing the checkpoint.
+    - checkpoint_filename (str): Filename of the checkpoint.
+    - save_dir (str): Directory to save the generated plot.
+    """
+    optimizer = torch.optim.Adam(model.parameters())  # Dummy optimizer to load state dict
+    start_epoch, train_losses, valid_losses, train_accuracies, valid_accuracies, lr_scheduler, regularization_losses = load_checkpoint(checkpoint_dir, checkpoint_filename, model, optimizer)
+
+    model.to(device)
+    model.eval()
+
+    y_true = []
+    y_pred = []
+
+    with torch.no_grad():
+        for data, target in dataloader:
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+            pred = output.argmax(dim=1, keepdim=True).squeeze()  # Get the index of the max log-probability
+            y_true.extend(target.cpu().numpy())
+            y_pred.extend(pred.cpu().numpy())
+
+    plot_confusion_matrix(y_true, y_pred, classes, save_dir=save_dir)
