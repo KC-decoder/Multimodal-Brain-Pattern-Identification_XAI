@@ -1,0 +1,10 @@
+2024-09-29 16:11:10,177 - INFO - Starting the training and validation process.
+2024-09-29 16:11:10,240 - INFO - Loaded metadata from /data2/users/koushani/HMS_data
+2024-09-29 16:11:10,616 - INFO - Created K-Fold splits.
+2024-09-29 16:11:10,618 - INFO - Processing fold 1/5
+2024-09-29 16:11:10,619 - INFO - Processing fold 2/5
+2024-09-29 16:11:10,621 - INFO - Processing fold 3/5
+2024-09-29 16:11:10,623 - INFO - Processing fold 4/5
+2024-09-29 16:11:10,627 - INFO - Processing fold 5/5
+2024-09-29 16:11:10,628 - INFO - Size of the train dataset: 1071
+2024-09-29 16:11:10,630 - INFO - Size of the valid dataset: 204

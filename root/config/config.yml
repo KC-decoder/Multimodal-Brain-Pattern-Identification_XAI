@@ -1,9 +1,9 @@
 # General settings
-debug: false
+debug: true
 AUGMENT: false
 VALIDATION_FRAC: 0.4
 AUGMENTATION_FRACTION: 0.05
-EPOCHS: 0
+EPOCHS: 10
 SKIP_ASSERT : false
 
 # Checkpointing
@@ -262,7 +262,7 @@ out_samples: 2000  # nsamples // 5
 debug_input_size: 32
 in_chans: 1
 
-batch_size: 1024
+batch_size: 32
 num_workers: 120
 fixed_length: 3000
 image_size: [400, 300]

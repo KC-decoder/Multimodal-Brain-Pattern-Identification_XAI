@@ -1,0 +1,13 @@
+2024-09-29 15:53:12,771 - INFO - Starting the training and validation process.
+2024-09-29 15:53:12,838 - INFO - Loaded metadata from /data2/users/koushani/HMS_data
+2024-09-29 15:53:13,092 - INFO - Created K-Fold splits.
+2024-09-29 15:53:13,107 - INFO - Processing fold 1/5
+2024-09-29 15:53:13,117 - INFO - Processing fold 2/5
+2024-09-29 15:53:13,127 - INFO - Processing fold 3/5
+2024-09-29 15:53:13,137 - INFO - Processing fold 4/5
+2024-09-29 15:53:13,146 - INFO - Processing fold 5/5
+2024-09-29 15:53:13,150 - INFO - Size of the train dataset: 85649
+2024-09-29 15:53:13,150 - INFO - Size of the valid dataset: 21529
+2024-09-29 15:59:38,919 - INFO - Batch data shape: torch.Size([1024, 1, 37, 3000])
+2024-09-29 15:59:38,920 - INFO - Batch labels shape: torch.Size([1024, 6])
+2024-09-29 15:59:40,592 - INFO - took 387.4396605491638 seconds to display dataloader info.
