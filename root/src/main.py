@@ -1,3 +1,4 @@
+
 import os
 import time
 import yaml
@@ -6,16 +7,16 @@ import matplotlib.pyplot as plt
 import torch
 from torchsummary import summary
 from torch import nn
-from torch.optim.lr_scheduler import ReduceLROnPlateau , StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau , StepLR, LambdaLR
 from torch.utils.data import DataLoader
-from utils.data_utils import createTrainTestSplit,create_k_fold_splits
+from utils.data_utils import createTrainTestSplit,create_k_fold_splits,analyze_checkpoints
 from utils.data_utils import plot_spectrograms
-from utils.training_utils import parallel_grid_search 
+from utils.training_utils import initialize_kaiming_weights , warmup_cosine_schedule
 from data.dataset import HMS_EEG_Dataset
 from data.dataset import HMS_Spectrogram_Dataset
 from data.dataset import CombinedDataset
 from models.models import  EEGNet, DeepConvNet
-from training.training import train_and_validate_eeg_manual_lr_grid_search, train_and_validate_eeg
+from training.training import train_and_validate_eeg_manual_lr_grid_search, train_and_validate_eeg, train_and_validate_from_checkpoint
 from utils.config_loader import load_config
 from utils.logger_utils import setup_logger
 from contextlib import redirect_stdout
@@ -25,17 +26,16 @@ import sys
 from io import StringIO
 from itertools import product
 import numpy as np
-
-
-
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import torch
+import argparse
 
 
 
 
-def main():
+def main(gamma,decay_epochs,gpu):
+    print(f"Running with gamma: {gamma} and decay_epochs: {decay_epochs} at GPU: {gpu}" )
     cfg = load_config()
     # Setup logger
     logger = setup_logger()
@@ -44,7 +44,7 @@ def main():
     # Assuming 'metadata' is a DataFrame containing the necessary data
     # Replace this with your actual data loading process
     # Log the start of the process
-    logger.info("Starting the training and validation process.")
+    logger.info("Observing training")
 
     # Initialize datasets
     # Assuming 'metadata' is a DataFrame containing the necessary data
@@ -73,8 +73,8 @@ def main():
     
     # Check if CUDA (GPU) is available
     if torch.cuda.is_available():
-        torch.cuda.set_device(2) # Specify GPU 2 (third GPU)
-        print(f"GPU 2 has been set as the device: {torch.cuda.get_device_name(cfg['device'])}")
+        torch.cuda.set_device(gpu) # Specify GPU
+        print(f"GPU {gpu} has been set as the device: {torch.cuda.get_device_name(cfg['device'])}")
     else:
         cfg['device'] = torch.device("cpu")
         print("GPU is not available, using CPU.")
@@ -85,7 +85,7 @@ def main():
 
     for fold_idx in range(len(fold_indices)):
         train_metadata, valid_metadata = createTrainTestSplit(metadata, fold_indices, fold_idx)
-
+        
         logger.info(f"Processing fold {fold_idx + 1}/{len(fold_indices)}")
 
     eeg_train_dataset = HMS_EEG_Dataset(train_metadata, cfg=cfg)
@@ -93,20 +93,30 @@ def main():
 
     eeg_valid_dataset = HMS_EEG_Dataset(valid_metadata, cfg=cfg)
     logger.info(f"Size of the valid dataset: {len(eeg_valid_dataset)}")
+    if cfg['debug']:
+        batch_size = cfg['debug_batch_size']
+    else:
+        batch_size = cfg['batch_size']
 
-    eeg_train_loader = DataLoader(eeg_train_dataset, batch_size=cfg['batch_size'], shuffle=True, num_workers=cfg['num_workers'], pin_memory=True)
-    eeg_valid_loader = DataLoader(eeg_valid_dataset, batch_size=cfg['batch_size'], shuffle=True, num_workers=cfg['num_workers'], pin_memory=True)
+    eeg_train_loader = DataLoader(eeg_train_dataset, batch_size= batch_size, shuffle=True, num_workers=cfg['num_workers'], pin_memory=True)
+    eeg_valid_loader = DataLoader(eeg_valid_dataset, batch_size= batch_size, shuffle=True, num_workers=cfg['num_workers'], pin_memory=True)
 
-    start_time = time.time()
-    # Iterate over batches and log the shape of the final DataLoader object
-    for batch in eeg_train_loader:
-        data, labels = batch
-        logger.info(f"Batch data shape: {data.shape}")  # Logs batch size and dimensions
-        logger.info(f"Batch labels shape: {labels.shape}")  # Logs label dimensions
-        break
-    end_time = time.time()
-    duration = end_time - start_time
-    logger.info(f"took {duration} seconds to display dataloader info.")
+    # start_time = time.time()
+    # # Iterate over batches and log the shape of the final DataLoader object
+    # for batch in eeg_train_loader:
+    #     data, labels = batch
+    #     logger.info(f"Batch data shape: {data.shape}")  # Logs batch size and dimensions
+    #     logger.info(f"Batch labels shape: {labels.shape}")  # Logs label dimensions
+    #     break
+    # end_time = time.time()
+    # duration = end_time - start_time
+    # logger.info(f"took {duration} seconds to display dataloader info.")
+    
+    
+    
+    
+    
+    
     
     
     
@@ -114,22 +124,95 @@ def main():
     nb_classes = cfg['n_classes']  # Number of classes in your dataset
     Chans = 37
     Samples = 3000
+    
+    warmup_epochs = 10
+    total_epochs = 50
+    initial_lr = 0.00002
+    target_lr = 0.002
+    min_lr = 0.00001
+    # # Path to the checkpoint
+    # checkpoint_path = "/eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search"
+    # checkpoint_filename = "eeg_checkpoint_index_3.pth.tar"
+
+    
+    # # Load the checkpoint
+    # checkpoint_path = os.path.join(cfg['checkpoint_dir'], checkpoint_filename)
+    # checkpoint = torch.load(checkpoint_path)
+
+    # # Extract saved parameters from the checkpoint
+    # model_state_dict = checkpoint['state_dict']
+    # optimizer_state_dict = checkpoint['optimizer']
+    # train_losses = checkpoint.get('train_losses', [])
+    # valid_losses = checkpoint.get('valid_losses', [])
+    # train_accuracies = checkpoint.get('train_accuracies', [])
+    # valid_accuracies = checkpoint.get('valid_accuracies', [])
+    # start_epoch = checkpoint.get('epoch', 0)
+    
+    
+    # # Print the loaded information
+    # # logger.info(f"Checkpoint loaded from epoch {start_epoch}")
+    # logger.info(f"Last Training Loss: {train_losses[-1] if train_losses else 'N/A'}")
+    # logger.info(f"Last Validation Loss: {valid_losses[-1] if valid_losses else 'N/A'}")
+    # logger.info(f"Last Training Accuracy: {train_accuracies[-1] if train_accuracies else 'N/A'}")
+    # logger.info(f"Last Validation Accuracy: {valid_accuracies[-1] if valid_accuracies else 'N/A'}")
+    
+    
    # Initialize model, optimizer, and scheduler
-    EEGNet_model = DeepConvNet(nb_classes=nb_classes, Chans=Chans, Samples=Samples, dropoutRate=0.5)
-    EEGNet_model.to(cfg['device'])
-    optimizer = torch.optim.Adam(EEGNet_model.parameters(), lr=cfg['initial_lr'])
+    EEGNet_model_3 = EEGNet(nb_classes=nb_classes, Chans=Chans, Samples=Samples, dropoutRate=0.5)
+    # Print weights before initialization
+    #print("Weights before initialization:")
+    #print(EEGNet_model_3.conv1.weight)
+
+    # Apply the weight initialization
+    EEGNet_model_3.apply(initialize_kaiming_weights)
+
+    # Print weights after initialization
+    #print("Weights after initialization:")
+    #print(EEGNet_model_3.conv1.weight)
+    EEGNet_model_3.to(cfg['device'])
+    optimizer = torch.optim.Adam(EEGNet_model_3.parameters(), lr=initial_lr)
+    # Define scheduler
+    # Define the LambdaLR scheduler
+    lambda_scheduler = LambdaLR(optimizer, lr_lambda=lambda epoch: warmup_cosine_schedule(epoch, warmup_epochs, total_epochs, initial_lr, target_lr, min_lr))
+
     # Initialize KLDivLoss
     criterion = nn.KLDivLoss(reduction='batchmean')
 
 
-    # Save initial model and optimizer state
-    initial_model_state = EEGNet_model.state_dict()
-    initial_optimizer_state = optimizer.state_dict()
+    # # Load model and optimizer state from checkpoint
+    # EEGNet_model.load_state_dict(model_state_dict)
+    # optimizer.load_state_dict(optimizer_state_dict)
 
-    # Start the parallel grid search
-    parallel_grid_search(cfg, EEGNet_model, eeg_train_loader, eeg_train_loader, initial_model_state, initial_optimizer_state, logger)
 
+
+    logger.info(f"Starting training with Learning Rate: {initial_lr}, warming up to {target_lr}, followed by cosine annealing to")
+        
+        # # If an old model exists, delete it to free GPU memory
+        # if 'EEGNet_model' in locals():
+        #     del EEGNet_model
+        #     torch.cuda.empty_cache()
+
+        
+
+        # Train and validate
+    train_and_validate_eeg(EEGNet_model_3, eeg_train_loader, eeg_valid_loader, epochs = 100, optimizer = optimizer, criterion = criterion, device = cfg['device'], checkpoint_dir = cfg['checkpoint_dir'], logger = logger, new_checkpoint = True, gamma = gamma, step_size = decay_epochs, scheduler = lambda_scheduler )
+        
+
+    # # Calculate the mean validation accuracy
+    # avg_valid_acc = np.mean(valid_accuracies)
+    # logger.info(f"Validation accuracy for gamma={gamma}, decay_epochs={decay_epochs}: {avg_valid_acc:.4f}")
+
+    # Save the model state
+    # model_checkpoint_path = os.path.join(cfg['checkpoint_dir'], f'model_reduce_on_plateau.pth')
+    # torch.save(EEGNet_model_2.state_dict(), model_checkpoint_path)
+    # logger.info(f"Model saved to {model_checkpoint_path}")
 
 
 if __name__ == "__main__":
-    main()
+    print("If main")
+    gamma = 0.91  # Example value, you can run the script multiple times with different values
+    decay_epochs = 2  # Example value, you can run the script multiple times with different values
+    gpu = 1
+    # combination_idx = 5
+    main(gamma, decay_epochs, gpu)
+    

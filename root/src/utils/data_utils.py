@@ -330,6 +330,11 @@ def create_k_fold_splits(metadata, n_splits=5):
 
     return fold_indices
 
+
+
+
+
+
 def createTrainTestSplit(metadata, fold_indices, fold_idx):
     train_ids, valid_ids = fold_indices[fold_idx]
 
@@ -338,6 +343,14 @@ def createTrainTestSplit(metadata, fold_indices, fold_idx):
 
     return train_metadata, valid_metadata
 
+
+def linear_warmup_and_cosine_annealing(epoch, warmup_epochs, total_epochs, initial_lr=0.00001, target_lr=0.001):
+    if epoch < warmup_epochs:
+        # Linearly increase from initial_lr to target_lr during warm-up
+        return initial_lr + (target_lr - initial_lr) * (epoch + 1) / warmup_epochs
+    else:
+        # After warm-up, apply cosine annealing
+        return target_lr * 0.5 * (1 + torch.cos(torch.pi * (epoch - warmup_epochs) / (total_epochs - warmup_epochs)))
 
 
 def seed_everything():
@@ -569,3 +582,43 @@ def create_confusion_matrix(model, dataloader, classes, device=CFG['device'], ch
             y_pred.extend(pred.cpu().numpy())
 
     plot_confusion_matrix(y_true, y_pred, classes, save_dir=save_dir)
+    
+def load_checkpoint_for_analysis(checkpoint_path):
+    if os.path.isfile(checkpoint_path):
+        checkpoint = torch.load(checkpoint_path)
+        valid_accuracies = checkpoint['valid_accuracies']  # Extract validation accuracies
+        return valid_accuracies
+    else:
+        print(f"No checkpoint found at {checkpoint_path}")
+        return None
+
+def analyze_checkpoints(checkpoint_dir):
+
+    best_valid_acc = 0
+    best_gamma = None
+    best_step_size = None
+
+    # Loop through all model files in the directory
+    for filename in os.listdir(checkpoint_dir):
+        if filename.startswith("model_"):
+            # Extract gamma and step_size from filename (assumes filenames contain gamma and decay)
+            parts = filename.split("_")
+            gamma = float(parts[2])
+            step_size = int(parts[4].split(".")[0])  # Extract the number before .pth
+        
+            # Load the checkpoint
+            checkpoint_path = os.path.join(checkpoint_dir, filename)
+            valid_accuracies = load_checkpoint_for_analysis(checkpoint_path)
+
+        if valid_accuracies:
+                # Get the maximum validation accuracy from this run
+            max_valid_acc = max(valid_accuracies)
+            print(f"Model: {filename} | Max Validation Accuracy: {max_valid_acc}")
+
+                # Compare with the best validation accuracy
+            if max_valid_acc > best_valid_acc:
+                best_valid_acc = max_valid_acc
+                best_gamma = gamma
+                best_step_size = step_size
+
+    print(f"Best model found with gamma={best_gamma}, step_size={best_step_size}, validation accuracy={best_valid_acc}")

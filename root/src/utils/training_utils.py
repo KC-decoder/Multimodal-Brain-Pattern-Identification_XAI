@@ -1,4 +1,5 @@
 import torch
+import math
 import torch.multiprocessing as mp
 from itertools import product
 import os
@@ -22,6 +23,7 @@ from utils.config_loader import load_config
 from utils.logger_utils import setup_logger
 from contextlib import redirect_stdout
 from itertools import product
+import torch.nn.init as init
 import io
 import sys
 from io import StringIO
@@ -113,3 +115,30 @@ def parallel_grid_search(cfg, model, train_loader, valid_loader, initial_model_s
 
     pool.close()
     pool.join()
+    
+    
+def initialize_kaiming_weights(model):
+    """Applies custom weight initialization to the given model."""
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d):
+            init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            if m.bias is not None:
+                init.constant_(m.bias, 0)
+        elif isinstance(m, nn.BatchNorm2d):
+            init.constant_(m.weight, 1)
+            init.constant_(m.bias, 0)
+        elif isinstance(m, nn.Linear):
+            init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            init.constant_(m.bias, 0)
+            
+            
+# Define the warm-up and cosine annealing schedule
+def warmup_cosine_schedule(epoch, warmup_epochs, total_epochs, initial_lr, peak_lr, min_lr):
+    if epoch < warmup_epochs:
+        # Linear warm-up phase from initial_lr to peak_lr
+        return initial_lr + (peak_lr - initial_lr) * (epoch + 1) / warmup_epochs
+    else:
+        # Cosine annealing phase from peak_lr to min_lr
+        progress = (epoch - warmup_epochs) / (total_epochs - warmup_epochs)
+        cosine_scale = 0.5 * (1 + math.cos(math.pi * progress))
+        return min_lr + (peak_lr - min_lr) * cosine_scale

@@ -20,7 +20,7 @@ def setup_logger(log_directory = log_directory, resume=False):
         logger (logging.Logger): Configured logger instance.
     """
     # Ensure logs directory exists
-    logs_dir = os.path.join(os.path.dirname(log_directory), 'logs')
+    logs_dir = os.path.join(os.path.dirname(log_directory), 'logs/logs_warmup_cosine_annealing')
     os.makedirs(logs_dir, exist_ok=True)
 
     # Determine log file name based on whether we are resuming training or not
