@@ -1,0 +1,47 @@
+2024-11-10 09:48:15,740 - INFO - Observing training
+2024-11-10 09:48:15,808 - INFO - Loaded metadata from /data2/users/koushani/HMS_data
+2024-11-10 09:48:16,041 - INFO - Created K-Fold splits.
+2024-11-10 09:48:16,057 - INFO - Processing fold 1/5
+2024-11-10 09:48:16,068 - INFO - Processing fold 2/5
+2024-11-10 09:48:16,079 - INFO - Processing fold 3/5
+2024-11-10 09:48:16,089 - INFO - Processing fold 4/5
+2024-11-10 09:48:16,098 - INFO - Processing fold 5/5
+2024-11-10 09:48:16,100 - INFO - Size of the train dataset: 85649
+2024-11-10 09:48:16,101 - INFO - Size of the valid dataset: 21529
+2024-11-10 09:48:16,764 - INFO - Starting training with Learning Rate: 3e-05, warming up to 0.005 within 10 epochs, followed by cosine annealing
+2024-11-10 09:48:16,765 - INFO - Starting Epoch 1/50, Current Learning Rate: 0.00003000
+2024-11-10 10:07:14,372 - INFO - Epoch 1/50, Learning Rate after warmup/cosine annealing: 0.00052700
+2024-11-10 10:07:14,373 - INFO - Epoch 1/50 - Train Loss: 16.00979, Train Accuracy: 17.56471%
+2024-11-10 10:07:14,373 - INFO - Epoch 1/50 - Valid Loss: 0.00463, Valid Accuracy: 18.10117%
+2024-11-10 10:07:14,387 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/warmup_cosine_annealing/eeg_warmup_cosine_annealing_4.pth.tar
+2024-11-10 10:07:14,388 - INFO - Starting Epoch 2/50, Current Learning Rate: 0.00052700
+2024-11-10 10:29:38,304 - INFO - Epoch 2/50, Learning Rate after warmup/cosine annealing: 0.00102400
+2024-11-10 10:29:38,306 - INFO - Epoch 2/50 - Train Loss: 10.65433, Train Accuracy: 19.28802%
+2024-11-10 10:29:38,306 - INFO - Epoch 2/50 - Valid Loss: 0.00213, Valid Accuracy: 23.94445%
+2024-11-10 10:29:38,330 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/warmup_cosine_annealing/eeg_warmup_cosine_annealing_4.pth.tar
+2024-11-10 10:29:38,330 - INFO - Starting Epoch 3/50, Current Learning Rate: 0.00102400
+2024-11-10 10:51:45,852 - INFO - Epoch 3/50, Learning Rate after warmup/cosine annealing: 0.00152100
+2024-11-10 10:51:45,853 - INFO - Epoch 3/50 - Train Loss: 6.53948, Train Accuracy: 21.85431%
+2024-11-10 10:51:45,853 - INFO - Epoch 3/50 - Valid Loss: 0.00159, Valid Accuracy: 24.52506%
+2024-11-10 10:51:45,876 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/warmup_cosine_annealing/eeg_warmup_cosine_annealing_4.pth.tar
+2024-11-10 10:51:45,877 - INFO - Starting Epoch 4/50, Current Learning Rate: 0.00152100
+2024-11-10 11:14:00,501 - INFO - Epoch 4/50, Learning Rate after warmup/cosine annealing: 0.00201800
+2024-11-10 11:14:00,503 - INFO - Epoch 4/50 - Train Loss: 4.61920, Train Accuracy: 24.34121%
+2024-11-10 11:14:00,503 - INFO - Epoch 4/50 - Valid Loss: 0.00137, Valid Accuracy: 25.61661%
+2024-11-10 11:14:00,526 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/warmup_cosine_annealing/eeg_warmup_cosine_annealing_4.pth.tar
+2024-11-10 11:14:00,526 - INFO - Starting Epoch 5/50, Current Learning Rate: 0.00201800
+2024-11-10 11:36:30,154 - INFO - Epoch 5/50, Learning Rate after warmup/cosine annealing: 0.00251500
+2024-11-10 11:36:30,155 - INFO - Epoch 5/50 - Train Loss: 3.53331, Train Accuracy: 26.94369%
+2024-11-10 11:36:30,155 - INFO - Epoch 5/50 - Valid Loss: 0.00123, Valid Accuracy: 28.84017%
+2024-11-10 11:36:30,192 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/warmup_cosine_annealing/eeg_warmup_cosine_annealing_4.pth.tar
+2024-11-10 11:36:30,192 - INFO - Starting Epoch 6/50, Current Learning Rate: 0.00251500
+2024-11-10 11:59:19,381 - INFO - Epoch 6/50, Learning Rate after warmup/cosine annealing: 0.00301200
+2024-11-10 11:59:19,382 - INFO - Epoch 6/50 - Train Loss: 3.00595, Train Accuracy: 28.87483%
+2024-11-10 11:59:19,382 - INFO - Epoch 6/50 - Valid Loss: 0.00112, Valid Accuracy: 30.28473%
+2024-11-10 11:59:19,402 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/warmup_cosine_annealing/eeg_warmup_cosine_annealing_4.pth.tar
+2024-11-10 11:59:19,403 - INFO - Starting Epoch 7/50, Current Learning Rate: 0.00301200
+2024-11-10 12:21:45,794 - INFO - Epoch 7/50, Learning Rate after warmup/cosine annealing: 0.00350900
+2024-11-10 12:21:45,795 - INFO - Epoch 7/50 - Train Loss: 2.65838, Train Accuracy: 30.65068%
+2024-11-10 12:21:45,795 - INFO - Epoch 7/50 - Valid Loss: 0.00106, Valid Accuracy: 30.15003%
+2024-11-10 12:21:45,815 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/warmup_cosine_annealing/eeg_warmup_cosine_annealing_4.pth.tar
+2024-11-10 12:21:45,815 - INFO - Starting Epoch 8/50, Current Learning Rate: 0.00350900

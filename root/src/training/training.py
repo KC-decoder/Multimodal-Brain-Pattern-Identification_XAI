@@ -7,24 +7,23 @@ from utils.config_loader import load_config
 
 cfg = load_config()
 
-def train_and_validate_eeg(model, train_loader, valid_loader, epochs, optimizer, criterion, device, checkpoint_dir, logger, new_checkpoint, gamma, step_size, scheduler):
-    # Generate the checkpoint filename based on the combination index
-    checkpoint_filename = f"eeg_warmup_cosine_annealing_1.pth.tar"
+import math
+
+def train_and_validate_eeg(model, train_loader, valid_loader, epochs, optimizer, criterion, device, checkpoint_dir, logger, new_checkpoint, initial_lr, peak_lr, warmup_epochs, min_lr):
+    # Generate the checkpoint filename
+    checkpoint_filename = f"eeg_warmup_cosine_annealing_5.pth.tar"
     
     seed_everything()
     start_epoch, train_losses, valid_losses, train_accuracies, valid_accuracies, lr_scheduler = load_checkpoint(checkpoint_dir, checkpoint_filename, model, optimizer, new_checkpoint)
 
-    # Initialize the previous validation loss to infinity for the first comparison
-    prev_valid_loss = float('inf')
-
-    # Lists to store metrics over epochs
-    train_precisions, valid_precisions = [], []
-    train_recalls, valid_recalls = [], []
-    train_f1s, valid_f1s = [], []
-
     for epoch in range(start_epoch, epochs):
-        logger.info(f"Starting Epoch {epoch+1}/{epochs}")
         
+        for param_group in optimizer.param_groups:
+            lr =  param_group['lr'] 
+        
+        logger.info(f"Starting Epoch {epoch+1}/{epochs}, Current Learning Rate: {lr:.8f}")
+        
+        # Training phase
         model.train()
         running_train_loss = 0.0
         correct_train = 0
@@ -45,7 +44,6 @@ def train_and_validate_eeg(model, train_loader, valid_loader, epochs, optimizer,
             correct_train += (predicted == labels).sum().item()
             total_train += labels.size(0)
 
-        # Calculate average loss and accuracy for the epoch
         train_loss = running_train_loss / total_train
         train_acc = 100. * correct_train / total_train
         train_losses.append(train_loss)
@@ -73,27 +71,25 @@ def train_and_validate_eeg(model, train_loader, valid_loader, epochs, optimizer,
         valid_acc = 100. * correct_valid / total_valid
         valid_losses.append(valid_loss)
         valid_accuracies.append(valid_acc)
+        
+        current_lr = lr 
+        # Warm-up and Cosine Annealing Learning Rate Adjustment
+        if epoch < warmup_epochs:
+            current_lr = initial_lr + (peak_lr - initial_lr) * (epoch + 1) / warmup_epochs
+        else:
+            progress = (epoch - warmup_epochs) / (epochs - warmup_epochs)
+            current_lr = min_lr + 0.5 * (peak_lr - min_lr) * (1 + math.cos(math.pi * progress))
+        
+        # Apply the updated learning rate to the optimizer
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = current_lr
+            
+        lr_scheduler.append(current_lr)
+        
+        logger.info(f"Epoch {epoch+1}/{epochs}, Learning Rate after warmup/cosine annealing: {current_lr:.8f}")
 
         logger.info(f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.5f}, Train Accuracy: {train_acc:.5f}%")
         logger.info(f"Epoch {epoch+1}/{epochs} - Valid Loss: {valid_loss:.5f}, Valid Accuracy: {valid_acc:.5f}%")
-        
-        
-        # Step the scheduler
-        logger.info("Warm up with Cosine Annealing")
-        scheduler.step()
-        current_lr = scheduler.get_last_lr()[0]
-        lr_scheduler.append(current_lr)
-        logger.info(f"Epoch {epoch + 1}/{epochs}, Current Learning Rate: {current_lr:.8f}")
-
-        # #Check if current validation loss is greater than the previous epoch's validation loss
-        # if valid_loss > prev_valid_loss:
-        #     # Reduce learning rate using exponential decay 
-        #     for param_group in optimizer.param_groups:
-        #         param_group['lr'] *= gamma
-        #     logger.info(f"Learning rate reduced exponentially by gamma={gamma}. New learning rate: {optimizer.param_groups[0]['lr']:.6f}")
-
-        # #Update the previous validation loss for the next comparison
-        # prev_valid_loss = valid_loss
 
         # Save checkpoint at the end of each epoch
         if cfg['checkpointing_enabled']:

@@ -1,0 +1,106 @@
+2024-10-16 16:22:05,501 - INFO - Starting the training and validation process.
+2024-10-16 16:22:06,187 - INFO - Loaded metadata from /data2/users/koushani/HMS_data
+2024-10-16 16:22:06,956 - INFO - Created K-Fold splits.
+2024-10-16 16:22:07,060 - INFO - Processing fold 1/5
+2024-10-16 16:22:07,183 - INFO - Processing fold 2/5
+2024-10-16 16:22:07,289 - INFO - Processing fold 3/5
+2024-10-16 16:22:07,380 - INFO - Processing fold 4/5
+2024-10-16 16:22:07,467 - INFO - Processing fold 5/5
+2024-10-16 16:22:07,477 - INFO - Size of the train dataset: 85649
+2024-10-16 16:22:07,481 - INFO - Size of the valid dataset: 21529
+2024-10-16 16:29:20,639 - INFO - Batch data shape: torch.Size([1024, 1, 37, 3000])
+2024-10-16 16:29:20,642 - INFO - Batch labels shape: torch.Size([1024, 6])
+2024-10-16 16:32:01,166 - INFO - took 593.6814830303192 seconds to display dataloader info.
+2024-10-16 16:32:02,601 - INFO - Starting grid search with gamma=0.9450000000000001 and learning rate scheduler step size=2
+2024-10-16 16:32:02,610 - INFO - Starting Epoch 1/20
+2024-10-16 16:51:18,308 - INFO - Epoch 1/20 - Train Loss: 1.77861, Train Accuracy: 29.36753%
+2024-10-16 16:51:18,309 - INFO - Epoch 1/20 - Valid Loss: 0.00168, Valid Accuracy: 32.31455%
+2024-10-16 16:51:18,358 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 16:51:18,358 - INFO - Starting Epoch 2/20
+2024-10-16 17:10:37,926 - INFO - Epoch 2/20 - Train Loss: 1.44535, Train Accuracy: 42.48853%
+2024-10-16 17:10:37,927 - INFO - Epoch 2/20 - Valid Loss: 0.00171, Valid Accuracy: 39.89038%
+2024-10-16 17:10:37,927 - INFO - Learning rate reduced manually by gamma=0.9450000000000001 with step_size=2. New learning rate: 0.004253
+2024-10-16 17:10:37,985 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 17:10:37,985 - INFO - Starting Epoch 3/20
+2024-10-16 17:29:56,006 - INFO - Epoch 3/20 - Train Loss: 1.25492, Train Accuracy: 52.55753%
+2024-10-16 17:29:56,007 - INFO - Epoch 3/20 - Valid Loss: 0.00168, Valid Accuracy: 40.01115%
+2024-10-16 17:29:56,057 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 17:29:56,057 - INFO - Starting Epoch 4/20
+2024-10-16 17:49:15,930 - INFO - Epoch 4/20 - Train Loss: 1.06014, Train Accuracy: 61.04450%
+2024-10-16 17:49:15,930 - INFO - Epoch 4/20 - Valid Loss: 0.00161, Valid Accuracy: 44.31232%
+2024-10-16 17:49:15,930 - INFO - Learning rate reduced manually by gamma=0.9450000000000001 with step_size=2. New learning rate: 0.004019
+2024-10-16 17:49:15,980 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 17:49:15,980 - INFO - Starting Epoch 5/20
+2024-10-16 18:08:37,256 - INFO - Epoch 5/20 - Train Loss: 0.94426, Train Accuracy: 66.19575%
+2024-10-16 18:08:37,256 - INFO - Epoch 5/20 - Valid Loss: 0.00158, Valid Accuracy: 48.19546%
+2024-10-16 18:08:37,308 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 18:08:37,308 - INFO - Starting Epoch 6/20
+2024-10-16 18:27:52,012 - INFO - Epoch 6/20 - Train Loss: 0.87780, Train Accuracy: 68.65112%
+2024-10-16 18:27:52,012 - INFO - Epoch 6/20 - Valid Loss: 0.00155, Valid Accuracy: 49.38920%
+2024-10-16 18:27:52,012 - INFO - Learning rate reduced manually by gamma=0.9450000000000001 with step_size=2. New learning rate: 0.003798
+2024-10-16 18:27:52,066 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 18:27:52,066 - INFO - Starting Epoch 7/20
+2024-10-16 18:47:24,673 - INFO - Epoch 7/20 - Train Loss: 0.81955, Train Accuracy: 70.75623%
+2024-10-16 18:47:24,674 - INFO - Epoch 7/20 - Valid Loss: 0.00156, Valid Accuracy: 50.41572%
+2024-10-16 18:47:24,739 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 18:47:24,739 - INFO - Starting Epoch 8/20
+2024-10-16 19:07:01,447 - INFO - Epoch 8/20 - Train Loss: 0.77851, Train Accuracy: 72.40949%
+2024-10-16 19:07:01,450 - INFO - Epoch 8/20 - Valid Loss: 0.00156, Valid Accuracy: 52.81713%
+2024-10-16 19:07:01,452 - INFO - Learning rate reduced manually by gamma=0.9450000000000001 with step_size=2. New learning rate: 0.003589
+2024-10-16 19:07:01,570 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 19:07:01,571 - INFO - Starting Epoch 9/20
+2024-10-16 19:27:41,626 - INFO - Epoch 9/20 - Train Loss: 0.73722, Train Accuracy: 73.85025%
+2024-10-16 19:27:41,626 - INFO - Epoch 9/20 - Valid Loss: 0.00149, Valid Accuracy: 52.83107%
+2024-10-16 19:27:41,681 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 19:27:41,681 - INFO - Starting Epoch 10/20
+2024-10-16 19:47:13,119 - INFO - Epoch 10/20 - Train Loss: 0.70112, Train Accuracy: 75.21162%
+2024-10-16 19:47:13,120 - INFO - Epoch 10/20 - Valid Loss: 0.00154, Valid Accuracy: 52.45947%
+2024-10-16 19:47:13,120 - INFO - Learning rate reduced manually by gamma=0.9450000000000001 with step_size=2. New learning rate: 0.003391
+2024-10-16 19:47:13,169 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 19:47:13,169 - INFO - Starting Epoch 11/20
+2024-10-16 20:06:57,694 - INFO - Epoch 11/20 - Train Loss: 0.68045, Train Accuracy: 76.11297%
+2024-10-16 20:06:57,695 - INFO - Epoch 11/20 - Valid Loss: 0.00142, Valid Accuracy: 53.57425%
+2024-10-16 20:06:57,748 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 20:06:57,748 - INFO - Starting Epoch 12/20
+2024-10-16 20:26:15,467 - INFO - Epoch 12/20 - Train Loss: 0.65913, Train Accuracy: 76.88122%
+2024-10-16 20:26:15,468 - INFO - Epoch 12/20 - Valid Loss: 0.00146, Valid Accuracy: 54.18273%
+2024-10-16 20:26:15,468 - INFO - Learning rate reduced manually by gamma=0.9450000000000001 with step_size=2. New learning rate: 0.003205
+2024-10-16 20:26:15,516 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 20:26:15,517 - INFO - Starting Epoch 13/20
+2024-10-16 20:45:34,267 - INFO - Epoch 13/20 - Train Loss: 0.63603, Train Accuracy: 77.76039%
+2024-10-16 20:45:34,268 - INFO - Epoch 13/20 - Valid Loss: 0.00148, Valid Accuracy: 54.09912%
+2024-10-16 20:45:34,319 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 20:45:34,319 - INFO - Starting Epoch 14/20
+2024-10-16 21:04:56,506 - INFO - Epoch 14/20 - Train Loss: 0.61953, Train Accuracy: 78.35468%
+2024-10-16 21:04:56,507 - INFO - Epoch 14/20 - Valid Loss: 0.00153, Valid Accuracy: 52.93325%
+2024-10-16 21:04:56,507 - INFO - Learning rate reduced manually by gamma=0.9450000000000001 with step_size=2. New learning rate: 0.003029
+2024-10-16 21:04:56,558 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 21:04:56,558 - INFO - Starting Epoch 15/20
+2024-10-16 21:24:28,833 - INFO - Epoch 15/20 - Train Loss: 0.60307, Train Accuracy: 78.90577%
+2024-10-16 21:24:28,834 - INFO - Epoch 15/20 - Valid Loss: 0.00151, Valid Accuracy: 53.21195%
+2024-10-16 21:24:28,882 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 21:24:28,882 - INFO - Starting Epoch 16/20
+2024-10-16 21:43:50,577 - INFO - Epoch 16/20 - Train Loss: 0.59344, Train Accuracy: 79.38797%
+2024-10-16 21:43:50,578 - INFO - Epoch 16/20 - Valid Loss: 0.00154, Valid Accuracy: 54.32208%
+2024-10-16 21:43:50,578 - INFO - Learning rate reduced manually by gamma=0.9450000000000001 with step_size=2. New learning rate: 0.002862
+2024-10-16 21:43:50,635 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 21:43:50,635 - INFO - Starting Epoch 17/20
+2024-10-16 22:03:10,813 - INFO - Epoch 17/20 - Train Loss: 0.58143, Train Accuracy: 79.74290%
+2024-10-16 22:03:10,814 - INFO - Epoch 17/20 - Valid Loss: 0.00160, Valid Accuracy: 53.17014%
+2024-10-16 22:03:10,886 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 22:03:10,886 - INFO - Starting Epoch 18/20
+2024-10-16 22:22:34,829 - INFO - Epoch 18/20 - Train Loss: 0.56731, Train Accuracy: 80.36988%
+2024-10-16 22:22:34,830 - INFO - Epoch 18/20 - Valid Loss: 0.00150, Valid Accuracy: 54.73547%
+2024-10-16 22:22:34,830 - INFO - Learning rate reduced manually by gamma=0.9450000000000001 with step_size=2. New learning rate: 0.002705
+2024-10-16 22:22:34,885 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 22:22:34,886 - INFO - Starting Epoch 19/20
+2024-10-16 22:41:56,937 - INFO - Epoch 19/20 - Train Loss: 0.55962, Train Accuracy: 80.67461%
+2024-10-16 22:41:56,938 - INFO - Epoch 19/20 - Valid Loss: 0.00158, Valid Accuracy: 54.79586%
+2024-10-16 22:41:56,994 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 22:41:56,994 - INFO - Starting Epoch 20/20
+2024-10-16 23:01:13,805 - INFO - Epoch 20/20 - Train Loss: 0.55106, Train Accuracy: 80.89295%
+2024-10-16 23:01:13,806 - INFO - Epoch 20/20 - Valid Loss: 0.00153, Valid Accuracy: 55.99889%
+2024-10-16 23:01:13,806 - INFO - Learning rate reduced manually by gamma=0.9450000000000001 with step_size=2. New learning rate: 0.002556
+2024-10-16 23:01:13,853 - INFO - Checkpoint saved at /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/eeg_checkpoint_index_3.pth.tar
+2024-10-16 23:01:13,854 - INFO - Validation accuracy for gamma=0.9450000000000001, decay_epochs=2: 50.1830
+2024-10-16 23:01:13,880 - INFO - Model saved to /eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search/model_gamma_0.9450000000000001_decay_2.pth

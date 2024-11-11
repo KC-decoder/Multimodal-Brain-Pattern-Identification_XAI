@@ -34,8 +34,8 @@ import argparse
 
 
 
-def main(gamma,decay_epochs,gpu):
-    print(f"Running with gamma: {gamma} and decay_epochs: {decay_epochs} at GPU: {gpu}" )
+def main(gpu):
+    print(f"Running at GPU: {gpu}" )
     cfg = load_config()
     # Setup logger
     logger = setup_logger()
@@ -126,10 +126,9 @@ def main(gamma,decay_epochs,gpu):
     Samples = 3000
     
     warmup_epochs = 10
-    total_epochs = 50
-    initial_lr = 0.00002
-    target_lr = 0.002
-    min_lr = 0.00001
+    initial_lr = 0.00003
+    target_lr = 0.003
+    min_lr = 0.00002
     # # Path to the checkpoint
     # checkpoint_path = "/eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search"
     # checkpoint_filename = "eeg_checkpoint_index_3.pth.tar"
@@ -173,7 +172,7 @@ def main(gamma,decay_epochs,gpu):
     optimizer = torch.optim.Adam(EEGNet_model_3.parameters(), lr=initial_lr)
     # Define scheduler
     # Define the LambdaLR scheduler
-    lambda_scheduler = LambdaLR(optimizer, lr_lambda=lambda epoch: warmup_cosine_schedule(epoch, warmup_epochs, total_epochs, initial_lr, target_lr, min_lr))
+    #lambda_scheduler = LambdaLR(optimizer, lr_lambda=lambda epoch: warmup_cosine_schedule(epoch, warmup_epochs, total_epochs, initial_lr, target_lr, min_lr))
 
     # Initialize KLDivLoss
     criterion = nn.KLDivLoss(reduction='batchmean')
@@ -185,7 +184,7 @@ def main(gamma,decay_epochs,gpu):
 
 
 
-    logger.info(f"Starting training with Learning Rate: {initial_lr}, warming up to {target_lr}, followed by cosine annealing to")
+    logger.info(f"Starting training with Learning Rate: {initial_lr}, warming up to {target_lr} within {warmup_epochs} epochs, followed by cosine annealing")
         
         # # If an old model exists, delete it to free GPU memory
         # if 'EEGNet_model' in locals():
@@ -195,7 +194,7 @@ def main(gamma,decay_epochs,gpu):
         
 
         # Train and validate
-    train_and_validate_eeg(EEGNet_model_3, eeg_train_loader, eeg_valid_loader, epochs = 100, optimizer = optimizer, criterion = criterion, device = cfg['device'], checkpoint_dir = cfg['checkpoint_dir'], logger = logger, new_checkpoint = True, gamma = gamma, step_size = decay_epochs, scheduler = lambda_scheduler )
+    train_and_validate_eeg(EEGNet_model_3, eeg_train_loader, eeg_valid_loader, epochs = cfg['EPOCHS'], optimizer = optimizer, criterion = criterion, device = cfg['device'], checkpoint_dir = cfg['checkpoint_dir'], logger = logger, new_checkpoint = True, initial_lr = initial_lr, peak_lr = target_lr, warmup_epochs = warmup_epochs, min_lr = min_lr)
         
 
     # # Calculate the mean validation accuracy
@@ -209,10 +208,6 @@ def main(gamma,decay_epochs,gpu):
 
 
 if __name__ == "__main__":
-    print("If main")
-    gamma = 0.91  # Example value, you can run the script multiple times with different values
-    decay_epochs = 2  # Example value, you can run the script multiple times with different values
     gpu = 1
-    # combination_idx = 5
-    main(gamma, decay_epochs, gpu)
+    main(gpu)
     

@@ -1,0 +1,12 @@
+2024-10-29 19:27:16,555 - INFO - Observing training
+2024-10-29 19:27:16,684 - INFO - Loaded metadata from /data2/users/koushani/HMS_data
+2024-10-29 19:27:16,860 - INFO - Created K-Fold splits.
+2024-10-29 19:27:16,885 - INFO - Processing fold 1/5
+2024-10-29 19:27:16,903 - INFO - Processing fold 2/5
+2024-10-29 19:27:16,920 - INFO - Processing fold 3/5
+2024-10-29 19:27:16,934 - INFO - Processing fold 4/5
+2024-10-29 19:27:16,950 - INFO - Processing fold 5/5
+2024-10-29 19:27:16,955 - INFO - Size of the train dataset: 85649
+2024-10-29 19:27:16,956 - INFO - Size of the valid dataset: 21529
+2024-10-29 19:27:17,936 - INFO - Starting training with Learning Rate: 0.05
+2024-10-29 19:27:17,937 - INFO - Starting Epoch 1/50
