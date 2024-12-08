@@ -11,7 +11,7 @@ import math
 
 def train_and_validate_eeg(model, train_loader, valid_loader, epochs, optimizer, criterion, device, checkpoint_dir, logger, new_checkpoint, initial_lr, peak_lr, warmup_epochs, min_lr):
     # Generate the checkpoint filename
-    checkpoint_filename = f"eeg_warmup_cosine_annealing_5.pth.tar"
+    checkpoint_filename = f"eeg_warmup_cosine_annealing_9.pth.tar"
     
     seed_everything()
     start_epoch, train_losses, valid_losses, train_accuracies, valid_accuracies, lr_scheduler = load_checkpoint(checkpoint_dir, checkpoint_filename, model, optimizer, new_checkpoint)
@@ -109,190 +109,7 @@ def train_and_validate_eeg(model, train_loader, valid_loader, epochs, optimizer,
     return train_losses, valid_losses, train_accuracies, valid_accuracies
             
    
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-            
-def train_and_validate_eeg_manual_lr_grid_search(
-    model, train_loader, valid_loader, total_epochs, optimizer, criterion, 
-    device, checkpoint_dir, logger, gamma_values, step_size_values, new_checkpoint):
 
-    checkpoint_filename = "eeg_checkpoint_learning_rate_search.pth.tar"
-    seed_everything()
-    logger.info(f"Inside training loop")
-    start_epoch, train_losses, valid_losses, train_accuracies, valid_accuracies, lr_scheduler = load_checkpoint(checkpoint_dir, checkpoint_filename, model, optimizer,new_checkpoint)
-
-    # Initialize variables for manual learning rate scheduling
-    best_valid_loss = float('inf')
-    lr_drop_epoch = None  # Epoch when validation loss drops for the first time
-    grid_search_started = False
-    pre_lr_drop_state = None  # To store model state before grid search starts
-
-    # Save initial model and optimizer state for grid search
-    initial_model_state = model.state_dict()
-    initial_optimizer_state = optimizer.state_dict()
-
-    # Grid search parameters
-    total_combinations = len(gamma_values) * len(step_size_values)
-    current_gamma, current_step_size = gamma_values[0], step_size_values[0]
-    
-    
-   
-    combination_idx = 0
-
-    # Variables to store the best combination and performance
-    best_combination = None
-    best_combination_train_losses = []
-    best_combination_valid_losses = []
-    best_combination_train_accuracies = []
-    best_combination_valid_accuracies = []
-
-    # Loop through epochs
-    for epoch in range(total_epochs):
-        logger.info(f"Starting Epoch {epoch+1}/{total_epochs}")
-        
-        # Training phase
-        model.train()
-        running_train_loss = 0.0
-        correct_train = 0
-        total_train = 0
-
-        logger.info(f"Training....")
-        for data, labels in train_loader:
-            data, labels = data.to(device), labels.to(device)
-
-            optimizer.zero_grad()
-            outputs = model(data)
-            loss = criterion(outputs, labels)
-            
-            loss.backward()
-            optimizer.step()
-
-            running_train_loss += loss.item() * data.size(0)
-            _, predicted = torch.max(outputs, 1)
-            labels = labels.argmax(dim=1)
-            correct_train += (predicted == labels).sum().item()
-            total_train += labels.size(0)
-
-        # Calculate average train loss and accuracy
-        logger.info(f"Calculating training metrics")
-        train_loss = running_train_loss / total_train
-        train_acc = 100. * correct_train / total_train
-        train_losses.append(train_loss)
-        train_accuracies.append(train_acc)
-
-        # log training results
-        logger.info(f"Epoch {epoch+1}/{total_epochs} - Train Loss: {train_loss:.5f}, Train Accuracy: {train_acc:.5f}%")
-        
-        
-        # Validation phase
-        model.eval()
-        running_valid_loss = 0.0
-        correct_valid = 0
-        total_valid = 0
-        logger.info(f"Validating")
-        with torch.no_grad():
-            for data, labels in valid_loader:
-                data, labels = data.to(device), labels.to(device)
-                outputs = model(data)
-                loss = criterion(outputs, labels)
-                running_valid_loss += loss.item() * data.size(0)
-
-                _, predicted = torch.max(outputs, 1)
-                _, labels_max = torch.max(labels, 1)
-                total_valid += labels.size(0)
-                correct_valid += (predicted == labels_max).sum().item()
-
-        valid_loss = running_valid_loss / total_valid
-        valid_acc = 100. * correct_valid / total_valid
-        valid_losses.append(valid_loss)
-        valid_accuracies.append(valid_acc)
-
-        # validation log results
-        logger.info(f"Epoch {epoch+1}/{total_epochs} - Valid Loss: {valid_loss:.5f}, Valid Accuracy: {valid_acc:.5f}%")
-
-        # Check if validation loss has increased compared to best validation loss
-        if valid_loss > best_valid_loss:
-            # Validation loss increased, start grid search or decay learning rate
-            if not grid_search_started:
-                grid_search_started = True
-                pre_lr_drop_state = {
-                    'model_state': model.state_dict(),
-                    'optimizer_state': optimizer.state_dict(),
-                    'epoch': epoch
-                }
-                logger.info(f"Validation loss increased at epoch {epoch+1}. Starting grid search...")
-                continue  # Skip learning rate decay in this epoch
-        else:
-            # Validation loss decreased or remained the same
-            best_valid_loss = valid_loss
-
-        # Perform grid search when validation loss increases
-        if grid_search_started:
-            # Check if we've exhausted all combinations
-            if combination_idx < total_combinations:
-                # Calculate gamma and step_size for this combination
-                current_gamma = gamma_values[combination_idx // len(step_size_values)]
-                current_step_size = step_size_values[combination_idx % len(step_size_values)]
-
-                # Adjust learning rate if the step size condition is met
-                if (epoch - pre_lr_drop_state['epoch']) % current_step_size == 0:
-                    for param_group in optimizer.param_groups:
-                        param_group['lr'] *= current_gamma
-                    logger.info(f"Applied manual learning rate decay with gamma={current_gamma} and step-size = {current_step_size}. New LR: {optimizer.param_groups[0]['lr']:.6f}")
-
-                # Move to the next combination after current_step_size epochs
-                if (epoch - pre_lr_drop_state['epoch']) // current_step_size > 0:
-                    # Check if this combination is the best so far
-                    if valid_acc > max(best_combination_valid_accuracies, default=0):
-                        best_combination = {
-                            'gamma': current_gamma,
-                            'step_size': current_step_size
-                        }
-                        best_combination_train_losses = train_losses.copy()
-                        best_combination_valid_losses = valid_losses.copy()
-                        best_combination_train_accuracies = train_accuracies.copy()
-                        best_combination_valid_accuracies = valid_accuracies.copy()
-
-                    combination_idx += 1
-                    if combination_idx < total_combinations:
-                        # Load the pre-drop state to restart with next hyperparameter set
-                        model.load_state_dict(pre_lr_drop_state['model_state'])
-                        optimizer.load_state_dict(pre_lr_drop_state['optimizer_state'])
-                        logger.info(f"Switching to next grid point: gamma={gamma_values[combination_idx // len(step_size_values)]}, step_size={step_size_values[combination_idx % len(step_size_values)]}")
-
-        if cfg['checkpointing_enabled']:
-            state = {
-                'epoch': epoch + 1,
-                'state_dict': model.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'train_losses': train_losses,
-                'valid_losses': valid_losses,
-                'train_accuracies': train_accuracies,
-                'valid_accuracies': valid_accuracies,
-                'lr_scheduler': lr_scheduler,
-            }
-            save_checkpoint(state, checkpoint_dir, checkpoint_filename)
-            logger.info(f"Checkpoint saved at {checkpoint_dir}/{checkpoint_filename}")
-
-    # Save the best combination details after training
-    logger.info(f"Best combination: gamma={best_combination['gamma']}, step_size={best_combination['step_size']}")
-    logger.info(f"Best combination training losses: {best_combination_train_losses}")
-    logger.info(f"Best combination validation losses: {best_combination_valid_losses}")
-    logger.info(f"Best combination training accuracies: {best_combination_train_accuracies}")
-    logger.info(f"Best combination validation accuracies: {best_combination_valid_accuracies}")
-
-    return train_losses, valid_losses, train_accuracies, valid_accuracies
 
 
 
@@ -315,32 +132,24 @@ def train_and_validate_eeg_manual_lr_grid_search(
 
 
 
+def train_spectrogram_model(
+    model, train_loader, valid_loader, epochs, optimizer, criterion, device, checkpoint_dir, 
+    logger, new_checkpoint, scheduler=None
+):
+    # Generate the checkpoint filename
+    checkpoint_filename = f"spec_ViT_1.pth.tar"
     
-    
-    
-def train_and_validate_from_checkpoint(model, train_loader, valid_loader, epochs, optimizer, criterion, device, checkpoint_dir, logger, new_checkpoint):
-    # Load the checkpoint to initialize model and optimizer parameters
-    checkpoint_filename = f"eeg_checkpoint_grid_search.pth.tar"
     seed_everything()
-    
-    # Load the checkpoint (model parameters, optimizer state)
-    _, _, _, _, _, _ = load_checkpoint(checkpoint_dir, checkpoint_filename, model, optimizer, new_checkpoint)
-
-    # Reset metrics and start fresh training from epoch 0
-    start_epoch = 0  # Start from epoch 0
-    train_losses, valid_losses = [], []
-    train_accuracies, valid_accuracies = [], []
-    
-    logger.info(f"Starting fresh training with parameters from checkpoint {checkpoint_filename}")
-
-    # Lists to store metrics over epochs
-    train_precisions, valid_precisions = [], []
-    train_recalls, valid_recalls = [], []
-    train_f1s, valid_f1s = [], []
+    start_epoch, train_losses, valid_losses, train_accuracies, valid_accuracies, lr_scheduler = load_checkpoint(
+        checkpoint_dir, checkpoint_filename, model, optimizer, new_checkpoint
+    )
 
     for epoch in range(start_epoch, epochs):
-        logger.info(f"Starting Epoch {epoch+1}/{epochs}")
+        # Log the initial learning rate
+        current_lr = optimizer.param_groups[0]['lr']
+        logger.info(f"Starting Epoch {epoch+1}/{epochs}, Initial Learning Rate: {current_lr:.8f}")
         
+        # Training phase
         model.train()
         running_train_loss = 0.0
         correct_train = 0
@@ -361,7 +170,6 @@ def train_and_validate_from_checkpoint(model, train_loader, valid_loader, epochs
             correct_train += (predicted == labels).sum().item()
             total_train += labels.size(0)
 
-        # Calculate average loss and accuracy for the epoch
         train_loss = running_train_loss / total_train
         train_acc = 100. * correct_train / total_train
         train_losses.append(train_loss)
@@ -390,8 +198,17 @@ def train_and_validate_from_checkpoint(model, train_loader, valid_loader, epochs
         valid_losses.append(valid_loss)
         valid_accuracies.append(valid_acc)
 
+        # Update the learning rate using the scheduler if provided
+        if scheduler:
+            scheduler.step()
+
+        # Update and log the current learning rate after scheduler adjustment
+        current_lr = optimizer.param_groups[0]['lr']
+        lr_scheduler.append(current_lr)
+
         logger.info(f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.5f}, Train Accuracy: {train_acc:.5f}%")
         logger.info(f"Epoch {epoch+1}/{epochs} - Valid Loss: {valid_loss:.5f}, Valid Accuracy: {valid_acc:.5f}%")
+        logger.info(f"Learning Rate after Scheduler Update: {current_lr:.8f}")
 
         # Save checkpoint at the end of each epoch
         if cfg['checkpointing_enabled']:
@@ -403,6 +220,7 @@ def train_and_validate_from_checkpoint(model, train_loader, valid_loader, epochs
                 'valid_losses': valid_losses,
                 'train_accuracies': train_accuracies,
                 'valid_accuracies': valid_accuracies,
+                'lr_scheduler': lr_scheduler,
             }
             save_checkpoint(state, checkpoint_dir, checkpoint_filename)
             logger.info(f"Checkpoint saved at {checkpoint_dir}/{checkpoint_filename}")

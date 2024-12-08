@@ -4,6 +4,7 @@ import pandas as pd
 import random
 import numpy as np
 import torch
+import torchvision.transforms as T
 from torch.utils.data import Dataset
 from utils.data_utils import (
     baseline_correction,
@@ -114,7 +115,7 @@ class HMS_EEG_Dataset(Dataset):
 
         return waves
 
-    
+
 # HMS_Spectrogram_Dataset class
 class HMS_Spectrogram_Dataset(Dataset):
     def __init__(self, train_ids, cfg, augmentations=None, plot=False):
@@ -123,6 +124,13 @@ class HMS_Spectrogram_Dataset(Dataset):
         self.cfg = cfg
         self.augmentations = augmentations
         self.plot = plot  # Flag to control plotting
+
+        # Define a transform to resize the spectrogram to 224x224
+        self.transform = T.Compose([
+            T.ToTensor(),
+            T.Resize((224, 224)),  # Resize to 224x224 for ViT compatibility
+            T.Normalize(mean=[0.5], std=[0.5])  # Normalize the spectrogram
+        ])
 
     def __len__(self):
         return len(self.train_ids)
@@ -156,18 +164,19 @@ class HMS_Spectrogram_Dataset(Dataset):
         processed_spectrogram = normalize_signal(processed_spectrogram)
         processed_spectrogram = resample_spectrogram(processed_spectrogram, self.cfg['image_size'])
 
+        # Expand to 3 channels for compatibility with ViT
         processed_spectrogram = np.tile(processed_spectrogram[..., None], (1, 1, 3))
+
         if self.plot:
             plot_spectrograms(basic_spectrogram, processed_spectrogram, self.train_ids.index.tolist(), num_labels=10)
 
+        # Apply transformations and augmentations
         if self.augmentations:
             processed_spectrogram = (processed_spectrogram * 255).astype(np.uint8)
             augmented = self.augmentations(image=processed_spectrogram)
-            processed_spectrogram = augmented['image']
-            processed_spectrogram = processed_spectrogram.float() / 255.0
+            processed_spectrogram = augmented['image'].float() / 255.0
         else:
-            processed_spectrogram = processed_spectrogram.astype(np.float32)
-            processed_spectrogram = torch.tensor(processed_spectrogram).permute(2, 0, 1).float()
+            processed_spectrogram = self.transform(processed_spectrogram)
 
         return processed_spectrogram, label
 

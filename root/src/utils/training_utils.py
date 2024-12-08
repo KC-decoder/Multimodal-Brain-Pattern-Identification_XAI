@@ -18,7 +18,7 @@ from data.dataset import HMS_EEG_Dataset
 from data.dataset import HMS_Spectrogram_Dataset
 from data.dataset import CombinedDataset
 from models.models import  EEGNet, DeepConvNet
-from training.training import train_and_validate_eeg_manual_lr_grid_search, train_and_validate_eeg
+from training.training import train_and_validate_eeg
 from utils.config_loader import load_config
 from utils.logger_utils import setup_logger
 from contextlib import redirect_stdout

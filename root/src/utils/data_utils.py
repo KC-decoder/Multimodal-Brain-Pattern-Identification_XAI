@@ -22,6 +22,19 @@ import random
 
 # Load the config file using the config_loader module
 from utils.config_loader import load_config
+import subprocess
+import sys
+
+# Function to install libraries listed in requirements.txt
+def install_packages():
+    try:
+        print("Installing required packages...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+        print("All required libraries are installed.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to install required libraries: {e}")
+        sys.exit(1)
+
 
 CFG = load_config()
 feature_to_index = {x: y for x, y in zip(CFG['eeg_features'], range(len(CFG['eeg_features'])))}

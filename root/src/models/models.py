@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from torchvision.models import vit_b_16
 
 class Block(nn.Module):
     """
@@ -647,3 +648,33 @@ class EEGSeizureDetectionModel(nn.Module):
         x = self.fc2(x)
 
         return F.log_softmax(x, dim=1)
+    
+    
+    
+class SpectrogramViT(nn.Module):
+    def __init__(self, image_size=(400, 300), num_classes=6):
+        super(SpectrogramViT, self).__init__()
+        
+        # Initialize a pre-trained Vision Transformer with ImageNet weights
+        self.vit = vit_b_16(pretrained=True)
+        
+        # Calculate the number of patches based on the new image size
+        new_patch_size = (image_size[0] // 16, image_size[1] // 16)
+        num_patches = new_patch_size[0] * new_patch_size[1]
+        
+        # Adjust the positional embeddings to match the new number of patches
+        self.vit.encoder.positional_embedding = nn.Parameter(
+            torch.randn(1, num_patches + 1, 768)
+        )
+        
+        # Get the input features from the classifier head
+        in_features = self.vit.heads[0].in_features
+        
+        # Adjust the classification head to output logits for KLDivLoss
+        self.vit.heads = nn.Sequential(
+            nn.Linear(in_features, num_classes),
+            nn.LogSoftmax(dim=1)  # Use LogSoftmax for KLDivLoss
+        )
+
+    def forward(self, x):
+        return self.vit(x)
