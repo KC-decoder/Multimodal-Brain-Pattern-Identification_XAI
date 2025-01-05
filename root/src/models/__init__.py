@@ -1,1 +1,2 @@
 from .models import  Spectrogram_Model, MultimodalModel, EEGNetResidual, EEGNetResidualLSTM, EEGNetTransformer, EEGNetAttentionDeep, EEGSeizureDetectionModel, EEGNet, DeepConvNet
+from .diffusion_model import  *

@@ -565,7 +565,7 @@ out_samples: 2000  # nsamples // 5
 debug_input_size: 32
 in_chans: 1
 
-batch_size: 2048
+batch_size: 64
 debug_batch_size: 16
 num_workers: 20
 fixed_length: 3000

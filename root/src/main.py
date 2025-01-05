@@ -1,259 +1,256 @@
-
+import gc
+import logging
+import math
+import json
 import os
-import time
-import yaml
-import pandas as pd
-import matplotlib.pyplot as plt
-import torch
-from torchsummary import summary
-from torch import nn
-from torch.optim.lr_scheduler import ReduceLROnPlateau , StepLR, LambdaLR
-from torch.utils.data import DataLoader
-from utils.data_utils import createTrainTestSplit,create_k_fold_splits,analyze_checkpoints
-from utils.data_utils import plot_spectrograms
-from utils.training_utils import initialize_kaiming_weights , warmup_cosine_schedule
-from data.dataset import HMS_EEG_Dataset
-from data.dataset import HMS_Spectrogram_Dataset
-from data.dataset import CombinedDataset
-from models.models import  EEGNet, DeepConvNet, SpectrogramViT
-from training.training import train_and_validate_eeg,  train_spectrogram_model
-from utils.config_loader import load_config
-from utils.logger_utils import setup_logger
-from contextlib import redirect_stdout
-from itertools import product
-import io
+import random
 import sys
-from io import StringIO
-from itertools import product
+import pickle
+import warnings
+from abc import abstractmethod
+from datetime import datetime
+from pathlib import Path
+from tqdm import tqdm
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+warnings.simplefilter("ignore")
+
 import numpy as np
-import torch.multiprocessing as mp
-import torch.distributed as dist
+import pandas as pd
 import torch
-import argparse
+import torch.nn as nn
+import torch.nn.functional as F
+import yaml
+from scipy.signal import butter, lfilter
+from sklearn.model_selection import GroupKFold
+from torch.nn.modules.loss import _Loss
+from torch.optim import Optimizer, lr_scheduler
+from torch.optim.lr_scheduler import _LRScheduler
+from torch import Tensor
+from torch.utils.data import Dataset, DataLoader
+from torch.cuda.amp import autocast, GradScaler
+from transformers import get_cosine_schedule_with_warmup
+import ipywidgets as widgets
 
+from utils.training_utils import KLDivWithLogitsLoss, Evaluator, _ModelCheckpoint, _BaseTrainer, MainTrainer
+from models.models import DilatedInceptionWaveNet
+from data.dataset import EEGDataset
+from utils.cfg_utils import CFG, _Logger, _seed_everything
+from models.diffusion_model import DiffEEG
 
-
-
-def main(gpu):
-    print(f"Running at GPU: {gpu}" )
-    cfg = load_config()
-    # Setup logger
-    logger = setup_logger()
-
-    # Initialize datasets
-    # Assuming 'metadata' is a DataFrame containing the necessary data
-    # Replace this with your actual data loading process
-    # Log the start of the process
-    logger.info("Observing training")
-
-    # Initialize datasets
-    # Assuming 'metadata' is a DataFrame containing the necessary data
-    # Replace this with your actual data loading process
-    metadata = pd.read_csv('/data2/users/koushani/HMS_data/train.csv')
-    logger.info(f"Loaded metadata from {cfg['root_dir']}")
-    
     
     
     
-        # Assuming your metadata dataframe is called 'metadata' and the label column is 'label_column'
-    class_counts = metadata['expert_consensus'].value_counts()
+TGT_VOTE_COLS = CFG.TGT_VOTE_COLS
+EEG_WLEN = CFG.EEG_WLEN
+EEG_FREQ = CFG.EEG_FREQ 
+TGT_COL = CFG.TGT_COL   
+N_CLASSES = CFG.N_CLASSES
+EEG_PTS = CFG.EEG_PTS
 
-    # Print the distribution of classes
-    print("Class distribution:")
-    print(class_counts)
 
-    # # Plot the distribution
-    # plt.figure(figsize=(10, 6))
-    # class_counts.plot(kind='bar')
-    # plt.title('Class Distribution')
-    # plt.xlabel('Class')
-    # plt.ylabel('Frequency')
-    # plt.show()
-
+if not CFG.exp_dump_path.exists():
+    os.mkdir(CFG.exp_dump_path)
     
-    # Check if CUDA (GPU) is available
-    if torch.cuda.is_available():
-        torch.cuda.set_device(gpu) # Specify GPU
-        print(f"GPU {gpu} has been set as the device: {torch.cuda.get_device_name(cfg['device'])}")
-    else:
-        cfg['device'] = torch.device("cpu")
-        print("GPU is not available, using CPU.")
-    
-    fold_indices = create_k_fold_splits(metadata, n_splits=5)
-    logger.info("Created K-Fold splits.")
-    
+logger = _Logger(logging_file=CFG.exp_dump_path / "train_eval.log").get_logger()
+_seed_everything(CFG.seed)
 
-    for fold_idx in range(len(fold_indices)):
-        train_metadata, valid_metadata = createTrainTestSplit(metadata, fold_indices, fold_idx)
+
+
+def _get_eeg_window(file: Path) -> np.ndarray:
+    """Return cropped EEG window.
+
+    Default setting is to return the middle 50-sec window.
+
+    Args:
+        file: EEG file path
+        test: if True, there's no need to truncate EEGs
+
+    Returns:
+        eeg_win: cropped EEG window 
+    """
+    eeg = pd.read_parquet(file, columns=CFG.feats)
+    n_pts = len(eeg)
+    offset = (n_pts - EEG_PTS) // 2
+    eeg = eeg.iloc[offset:offset + EEG_PTS]
+    
+    eeg_win = np.zeros((EEG_PTS, len(CFG.feats)))
+    for j, col in enumerate(CFG.feats):
+        if CFG.cast_eegs:
+            eeg_raw = eeg[col].values.astype("float32")
+        else:
+            eeg_raw = eeg[col].values 
+
+        # Fill missing values
+        mean = np.nanmean(eeg_raw)
+        if np.isnan(eeg_raw).mean() < 1:
+            eeg_raw = np.nan_to_num(eeg_raw, nan=mean)
+        else: 
+            # All missing
+            eeg_raw[:] = 0
+        eeg_win[:, j] = eeg_raw 
         
-        logger.info(f"Processing fold {fold_idx + 1}/{len(fold_indices)}")
+    return eeg_win 
 
-#     eeg_train_dataset = HMS_EEG_Dataset(train_metadata, cfg=cfg)
-#     logger.info(f"Size of the train dataset: {len(eeg_train_dataset)}")
-
-#     eeg_valid_dataset = HMS_EEG_Dataset(valid_metadata, cfg=cfg)
-#     logger.info(f"Size of the valid dataset: {len(eeg_valid_dataset)}")
-#     if cfg['debug']:
-#         batch_size = cfg['debug_batch_size']
-#     else:
-#         batch_size = cfg['batch_size']
-
-#     eeg_train_loader = DataLoader(eeg_train_dataset, batch_size= batch_size, shuffle=True, num_workers=cfg['num_workers'], pin_memory=True)
-#     eeg_valid_loader = DataLoader(eeg_valid_dataset, batch_size= batch_size, shuffle=True, num_workers=cfg['num_workers'], pin_memory=True)
-
-#     # start_time = time.time()
-#     # # Iterate over batches and log the shape of the final DataLoader object
-#     # for batch in eeg_train_loader:
-#     #     data, labels = batch
-#     #     logger.info(f"Batch data shape: {data.shape}")  # Logs batch size and dimensions
-#     #     logger.info(f"Batch labels shape: {labels.shape}")  # Logs label dimensions
-#     #     break
-#     # end_time = time.time()
-#     # duration = end_time - start_time
-#     # logger.info(f"took {duration} seconds to display dataloader info.")
-    
-    
-    
-    
-    
-    
-    
-    
-    
-#     # Define your model
-#     nb_classes = cfg['n_classes']  # Number of classes in your dataset
-#     Chans = 37
-#     Samples = 3000
-    
-#     warmup_epochs = 10
-#     initial_lr = 0.001
-#     target_lr = 0.004
-#     min_lr = 0.00001
-    
-    
-    
-    
-    
-#     # # Path to the checkpoint
-#     # checkpoint_path = "/eng/home/koushani/Documents/Multimodal_XAI/Brain-Pattern-Identification-using-Multimodal-Classification/checkpoint_dir/Learning_rate_grid_search"
-#     # checkpoint_filename = "eeg_checkpoint_index_3.pth.tar"
-
-    
-#     # # Load the checkpoint
-#     # checkpoint_path = os.path.join(cfg['checkpoint_dir'], checkpoint_filename)
-#     # checkpoint = torch.load(checkpoint_path)
-
-#     # # Extract saved parameters from the checkpoint
-#     # model_state_dict = checkpoint['state_dict']
-#     # optimizer_state_dict = checkpoint['optimizer']
-#     # train_losses = checkpoint.get('train_losses', [])
-#     # valid_losses = checkpoint.get('valid_losses', [])
-#     # train_accuracies = checkpoint.get('train_accuracies', [])
-#     # valid_accuracies = checkpoint.get('valid_accuracies', [])
-#     # start_epoch = checkpoint.get('epoch', 0)
-    
-    
-#     # # Print the loaded information
-#     # # logger.info(f"Checkpoint loaded from epoch {start_epoch}")
-#     # logger.info(f"Last Training Loss: {train_losses[-1] if train_losses else 'N/A'}")
-#     # logger.info(f"Last Validation Loss: {valid_losses[-1] if valid_losses else 'N/A'}")
-#     # logger.info(f"Last Training Accuracy: {train_accuracies[-1] if train_accuracies else 'N/A'}")
-#     # logger.info(f"Last Validation Accuracy: {valid_accuracies[-1] if valid_accuracies else 'N/A'}")
-    
-    
-#    # Initialize model, optimizer, and scheduler
-#     EEGNet_model_3 = EEGNet(nb_classes=nb_classes, Chans=Chans, Samples=Samples, dropoutRate=0.5)
-#     # Print weights before initialization
-#     #print("Weights before initialization:")
-#     #print(EEGNet_model_3.conv1.weight)
-
-#     # Apply the weight initialization
-#     EEGNet_model_3.apply(initialize_kaiming_weights)
-
-#     # Print weights after initialization
-#     #print("Weights after initialization:")
-#     #print(EEGNet_model_3.conv1.weight)
-#     EEGNet_model_3.to(cfg['device'])
-#     optimizer = torch.optim.Adam(EEGNet_model_3.parameters(), lr=initial_lr)
-#     # Define scheduler
-#     # Define the LambdaLR scheduler
-#     #lambda_scheduler = LambdaLR(optimizer, lr_lambda=lambda epoch: warmup_cosine_schedule(epoch, warmup_epochs, total_epochs, initial_lr, target_lr, min_lr))
-
-#     # Initialize KLDivLoss
-#     criterion = nn.KLDivLoss(reduction='batchmean')
+DATA_PATH = CFG.DATA_PATH
+train = pd.read_csv(DATA_PATH / "train.csv")
+logger.info(f"Train data shape | {train.shape}")
 
 
-#     # # Load model and optimizer state from checkpoint
-#     # EEGNet_model.load_state_dict(model_state_dict)
-#     # optimizer.load_state_dict(optimizer_state_dict)
+# Define paths
+eeg_file_path = DATA_PATH/"kaggle" /"input"/ "brain-eegs" / "eegs.npy"
 
+# Ensure directories exist
+eeg_file_path.parent.mkdir(parents=True, exist_ok=True)
 
+# Unique EEG IDs
+uniq_eeg_ids = train["eeg_id"].unique()
+n_uniq_eeg_ids = len(uniq_eeg_ids)
 
-#     logger.info(f"Starting training with Learning Rate: {initial_lr}, warming up to {target_lr} within {warmup_epochs} epochs, followed by learning rate scheduling using cosine annealing to {min_lr} ")
+# # Check if file exists
+# if not eeg_file_path.exists() or CFG.gen_eegs:
+#     logger.info("Generate cropped EEGs...")
+#     all_eegs = {}
+    
+#     for i, eeg_id in tqdm(enumerate(uniq_eeg_ids), total=n_uniq_eeg_ids):
+#         eeg_win = _get_eeg_window(DATA_PATH / "train_eegs" / f"{eeg_id}.parquet")
+#         all_eegs[eeg_id] = eeg_win
+    
+#     # Save the new file
+#     np.save(eeg_file_path, all_eegs)
+#     logger.info(f"Saved EEGs to {eeg_file_path}")
+# else:
+logger.info("Load cropped EEGs...")
+all_eegs = np.load(eeg_file_path, allow_pickle=True).item()
+assert len(all_eegs) == n_uniq_eeg_ids
+
+# Debug: Print a sample EEG shape
+logger.info(f"Demo EEG shape | {list(all_eegs.values())[0].shape}")
+
+logger.info(f"Process labels...")
+df_tmp = train.groupby("eeg_id")[["patient_id"]].agg("first")
+labels_tmp = train.groupby("eeg_id")[TGT_VOTE_COLS].agg("sum")
+for col in TGT_VOTE_COLS:
+    df_tmp[col] = labels_tmp[col].values
+
+# Normalize target columns
+y_data = df_tmp[TGT_VOTE_COLS].values
+y_data = y_data / y_data.sum(axis=1, keepdims=True)
+df_tmp[TGT_VOTE_COLS] = y_data
+
+tgt = train.groupby("eeg_id")[["expert_consensus"]].agg("first")
+df_tmp[TGT_COL] = tgt 
+
+train = df_tmp.reset_index()
+logger.info(f"Training DataFrame shape | {train.shape}")
+
+    
+if CFG.add_augmentation:
+    # Build dataloaders
+    data_tr, data_val = train.iloc[tr_idx].reset_index(drop=True), train.iloc[val_idx].reset_index(drop=True)
+    train_loader = DataLoader(
+        EEGDataset({"meta": data_tr, "eeg": all_eegs}, "train", **CFG.dataset),
+        shuffle=CFG.trainer["dataloader"]["shuffle"],
+        batch_size=CFG.trainer["dataloader"]["batch_size"],
+        num_workers=CFG.trainer["dataloader"]["num_workers"]
+    )
+    val_loader = DataLoader(
+        EEGDataset({"meta": data_val, "eeg": all_eegs}, "valid", **CFG.dataset),
+        shuffle=False,
+        batch_size=CFG.trainer["dataloader"]["batch_size"],
+        num_workers=CFG.trainer["dataloader"]["num_workers"]
+    )
+    
+    diffusion_trainer = 
         
-#         # # If an old model exists, delete it to free GPU memory
-#         # if 'EEGNet_model' in locals():
-#         #     del EEGNet_model
-#         #     torch.cuda.empty_cache()
-
         
-
-#         # Train and validate
-#     train_and_validate_eeg(EEGNet_model_3, eeg_train_loader, eeg_valid_loader, epochs = cfg['EPOCHS'], optimizer = optimizer, criterion = criterion, device = cfg['device'], checkpoint_dir = cfg['checkpoint_dir'], logger = logger, new_checkpoint = True, initial_lr = initial_lr, peak_lr = target_lr, warmup_epochs = warmup_epochs, min_lr = min_lr)
         
+if CFG.train_models:
+    oof = np.zeros((len(train), N_CLASSES))
+    prfs = []
 
-#     # # Calculate the mean validation accuracy
-#     # avg_valid_acc = np.mean(valid_accuracies)
-#     # logger.info(f"Validation accuracy for gamma={gamma}, decay_epochs={decay_epochs}: {avg_valid_acc:.4f}")
+    cv = GroupKFold(n_splits=5)
+    for fold, (tr_idx, val_idx) in enumerate(cv.split(train, train[TGT_COL], train["patient_id"])):
+        logger.info(f"== Train and Eval Process - Fold{fold} ==")
 
-#     # Save the model state
-#     # model_checkpoint_path = os.path.join(cfg['checkpoint_dir'], f'model_reduce_on_plateau.pth')
-#     # torch.save(EEGNet_model_2.state_dict(), model_checkpoint_path)
-#     # logger.info(f"Model saved to {model_checkpoint_path}")
+        # Build dataloaders
+        data_tr, data_val = train.iloc[tr_idx].reset_index(drop=True), train.iloc[val_idx].reset_index(drop=True)
+        train_loader = DataLoader(
+            EEGDataset({"meta": data_tr, "eeg": all_eegs}, "train", **CFG.dataset),
+            shuffle=CFG.trainer["dataloader"]["shuffle"],
+            batch_size=CFG.trainer["dataloader"]["batch_size"],
+            num_workers=CFG.trainer["dataloader"]["num_workers"]
+        )
+        val_loader = DataLoader(
+            EEGDataset({"meta": data_val, "eeg": all_eegs}, "valid", **CFG.dataset),
+            shuffle=False,
+            batch_size=CFG.trainer["dataloader"]["batch_size"],
+            num_workers=CFG.trainer["dataloader"]["num_workers"]
+        )
 
+        # Build model
+        logger.info(f"Build model...")
+        model = DilatedInceptionWaveNet()
+        model.to(CFG.device)
 
+        # Build criterion
+        loss_fn = KLDivWithLogitsLoss()
 
+        # Build solvers
+        optimizer = torch.optim.Adam(model.parameters(), lr=CFG.trainer["lr"])
+        num_training_steps = (
+            math.ceil(
+                len(train_loader.dataset)
+                / (CFG.trainer["dataloader"]["batch_size"] * CFG.trainer["grad_accum_steps"])
+            )
+            * CFG.trainer["epochs"]
+        )
+        lr_skd = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=num_training_steps)
 
+        # Build evaluator
+        evaluator = Evaluator(metric_names=["kldiv"])
 
-    spec_train_dataset = HMS_Spectrogram_Dataset(train_metadata, cfg=cfg)
-    print(f"Size of the train dataset: {len(spec_train_dataset)}")
+        # Build trainer
+        trainer: _BaseTrainer = None
+        trainer = MainTrainer(
+            logger=logger,
+            trainer_cfg=CFG.trainer,
+            model=model,
+            loss_fn=loss_fn,
+            optimizer=optimizer,
+            lr_skd=lr_skd,
+            ckpt_path=CFG.exp_dump_path,
+            evaluator=evaluator,
+            scaler=None,
+            train_loader=train_loader,
+            eval_loader=val_loader,
+            use_wandb=False
+        )
 
-    spec_valid_dataset = HMS_Spectrogram_Dataset(valid_metadata, cfg=cfg)
-    print(f"Size of the valid dataset: {len(spec_valid_dataset)}")
+        # Run main training and evaluation for one fold
+        y_preds = trainer.train_eval(fold)
+        oof[val_idx, :] = y_preds["val"]
 
+        # Dump output objects
+        for model_path in CFG.exp_dump_path.glob("*.pth"):
+            if "seed" in str(model_path) or "fold" in str(model_path):
+                continue
 
-    spec_train_loader = DataLoader(spec_train_dataset, batch_size=cfg['batch_size'], shuffle=True, num_workers=cfg['num_workers'], pin_memory=True)
-    spec_valid_loader = DataLoader(spec_valid_dataset, batch_size=cfg['batch_size'], shuffle=True, num_workers=cfg['num_workers'], pin_memory=True)
-    
-    start_time = time.time()
-    # Iterate over batches and log the shape of the final DataLoader object
-    for batch in spec_train_loader:
-        data, labels = batch
-        print(f"Batch data shape: {data.shape}")  # Logs batch size and dimensions
-        print(f"Batch labels shape: {labels.shape}")  # Logs label dimensions
-        break
-    end_time = time.time()
-    duration = end_time - start_time
-    print(f"took {duration} seconds to display dataloader info.")
-    
-    # Create the ViT model
-    SPEC_model = SpectrogramViT(image_size=(400, 300), num_classes=6)
+            # Rename model file
+            model_file_name_dst = f"{model_path.stem}_fold{fold}.pth"
+            model_path_dst = CFG.exp_dump_path / model_file_name_dst
+            model_path.rename(model_path_dst)
 
-    # Device setup
-    SPEC_model.to(cfg['device'])
-    logger.info(SPEC_model)
-    
-    
-    # Loss function adjusted for KL divergence
-    criterion = nn.KLDivLoss(reduction='batchmean')
-    optimizer = torch.optim.Adam(SPEC_model.parameters(), lr=0.001)
-    
-    logger.info(f"Starting training")
-    
-    train_spectrogram_model(SPEC_model, spec_train_loader, spec_valid_loader,epochs = cfg['EPOCHS'], optimizer = optimizer, criterion = criterion, device = cfg['device'], checkpoint_dir = cfg['checkpoint_dir'], logger = logger, new_checkpoint = True)
+        # Free mem.
+        del (data_tr, data_val, train_loader, val_loader, model, optimizer, lr_skd, evaluator, trainer)
+        _ = gc.collect()
 
+        if CFG.one_fold_only:
+            logger.info("Cross-validation stops at first fold!!!")
+            break
 
-if __name__ == "__main__":
-    gpu = 0
-    main(gpu)
-    
+    np.save(CFG.exp_dump_path / "oof.npy", oof)
+else:
+    file_path = DATA_PATH / "kaggle/input/hms-oof-demo/oof_seed0.npy"
+    print(f"Checking file path: {file_path}")
+    print(f"File exists: {os.path.exists(file_path)}")
+    oof = np.load(file_path)
