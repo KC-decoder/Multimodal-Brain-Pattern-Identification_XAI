@@ -1,4 +1,4 @@
-### XAI Harmful Brain Pattern Identificaltion using EEG and Spectrogram Data
+# XAI IN HARMFUL BRAIN PATTERN IDENTIOFICATION USING EEG AND SPECTROGRAM DATA
 
 The Brain Pattern Identification Project investigates the efficacy of a multimodal model combining EEG and spectrogram data for seizure classification. As illustrated in the performance curves (Figure 1), the multimodal model already outperforms unimodal approaches, achieving better accuracy and lower loss in both training and validation.
 
