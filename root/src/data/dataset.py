@@ -33,6 +33,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from torch import Tensor
 from tqdm import tqdm
 from scipy.signal import butter, lfilter
+from utils.cfg_utils import CFG
 
 
 
@@ -47,12 +48,10 @@ from scipy.signal import butter, lfilter
 class _EEGTransformer(object):
     """Data transformer for raw EEG signals."""
 
-    FEAT2CODE = {f: i for i, f in enumerate(CFG.feats)}
-
     def __init__(
         self,
         n_feats: int,
-        apply_chris_magic_ch8: bool = True,
+        apply_chris_magic_ch8: bool = False,
         normalize: bool = True,
         apply_butter_lowpass_filter: bool = True,
         apply_mu_law_encoding: bool = False,
@@ -64,6 +63,12 @@ class _EEGTransformer(object):
         self.apply_butter_lowpass_filter = apply_butter_lowpass_filter
         self.apply_mu_law_encoding = apply_mu_law_encoding
         self.downsample = downsample
+        if apply_chris_magic_ch8:
+            required_channels = CFG.feats 
+        else:
+            required_channels = CFG.channel_feats  # 19-channel names
+
+        self.FEAT2CODE = {f: i for i, f in enumerate(required_channels)}
 
     def transform(self, x: np.ndarray) -> np.ndarray:
         """Apply transformation on raw EEG signals.
@@ -75,8 +80,13 @@ class _EEGTransformer(object):
             x_: transformed EEG signals
         """
         x_ = x.copy()
+
         if self.apply_chris_magic_ch8:
             x_ = self._apply_chris_magic_ch8(x_)
+        else:
+            # Select 19 canonical EEG channels
+            selected_indices = list(self.FEAT2CODE.values())
+            x_ = x_[:, selected_indices]  # (L, 19)
 
         if self.normalize:
             x_ = np.clip(x_, -1024, 1024)
@@ -186,7 +196,7 @@ class EEGDataset(Dataset):
             if not self._stream_X:
                 # Retrieve raw EEG signals
                 eeg = self.all_eegs[row["eeg_id"]]
-
+                # print(f"Shape of raw eeg: {eeg.shape}")
                 # Apply EEG transformer
                 x = self.eeg_trafo.transform(eeg)
 
@@ -200,26 +210,48 @@ class EEGDataset(Dataset):
     def __len__(self) -> int:
         return self._n_samples
 
-    def __getitem__(self, idx: int) -> Dict[str, Tensor]:
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         if self._X is None:
-            # Load data here...
-#             x = np.load(...)
-#             x = self.eeg_trafo.transform(x)
+            # Load data if needed...
             pass
         else:
-            x = self._X[idx, ...]
-        data_sample = {"x": torch.tensor(x, dtype=torch.float32)}
+            x = self._X[idx, ...]  # Shape: (2000, 8) (Incorrect format)
+        
+        # Convert to tensor and permute dimensions
+        x = torch.tensor(x, dtype=torch.float32).permute(1, 0)  # Now (8, 2000)
+
+        data_sample = {"x": x}
+        
         if not self._infer:
             data_sample["y"] = torch.tensor(self._y[idx, :], dtype=torch.float32)
 
         return data_sample
+    
+class DummyEEGDataset(Dataset):
+    """Dataset containing 1 EEG sample per class (6 total)."""
+    def __init__(self, samples):
+        self.samples = samples  # List of (x, y) tuples
 
+    def __len__(self):
+        return len(self.samples)
 
+    def __getitem__(self, idx):
+        x, y = self.samples[idx]
+        return {"x": x, "y": y}    
+    
+    
+class CombinedEEGDataset(Dataset):
+    def __init__(self, data):
+        self.data = data
+    
+    def __len__(self):
+        return len(self.data)
 
-
-
-
-
+    def __getitem__(self, idx):
+        x, y = self.data[idx]
+        return {"x": x, "y": y}
+    
+    
 
 
 # # HMS_EEG_Dataset class

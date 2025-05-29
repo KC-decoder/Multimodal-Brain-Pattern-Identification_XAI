@@ -1,172 +1,167 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-
-class _InputBlock(nn.Module):
-    """Input block for DiffEEG."""
-    def __init__(self, n_channels):
-        super(_InputBlock, self).__init__()
-        self.input_conv = nn.Conv2d(n_channels, 128, kernel_size=(1, 1))
-        self.relu = nn.ReLU()
-
-    def forward(self, eeg_input, noise):
-        """
-        Args:
-            eeg_input: Raw EEG input (B, C, H, W)
-            noise: Noise added to the EEG (B, C, H, W)
-        Returns:
-            Processed EEG (B, 128, H, W)
-        """
-        x = self.input_conv(eeg_input + noise)
-        x = self.relu(x)
-        return x
-
-
-class _StepEmbedding(nn.Module):
-    """Step embedding block for DiffEEG."""
-    def __init__(self, n_timesteps):
-        super(_StepEmbedding, self).__init__()
-        self.fc1 = nn.Linear(n_timesteps, 512)
-        self.fc2 = nn.Linear(512, 512)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, timestep):
-        """
-        Args:
-            timestep: Timestep tensor (B,)
-        Returns:
-            Embedded timesteps (B, 512, 1, 1)
-        """
-        t_emb = self.fc1(timestep)
-        t_emb = self.sigmoid(self.fc2(t_emb))
-        return t_emb.view(t_emb.size(0), -1, 1, 1)
-
-
-class _ConditionBlock(nn.Module):
-    """Condition block for DiffEEG."""
-    def __init__(self, condition_dim):
-        super(_ConditionBlock, self).__init__()
-        self.conv1 = nn.Conv2d(1, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-        self.conv2 = nn.Conv2d(256, condition_dim, kernel_size=(1, 1))
-
-    def forward(self, condition):
-        """
-        Args:
-            condition: Conditioning input (e.g., STFT features) (B, 1, H, W)
-        Returns:
-            Processed condition (B, 256, H, W)
-        """
-        c = self.conv1(condition)
-        c = self.conv2(c)
-        return c
-
-
-class _ResidualBlock(nn.Module):
-    """Residual block for DiffEEG."""
-    def __init__(self, n_channels, dilation, condition_dim):
-        super(_ResidualBlock, self).__init__()
-        self.dilated_conv = nn.Conv2d(n_channels, 256, kernel_size=(3, 3), padding=(dilation, dilation), dilation=dilation)
-        self.tanh = nn.Tanh()
-        self.sigmoid = nn.Sigmoid()
-
-        self.output_conv = nn.Conv2d(256, n_channels, kernel_size=(1, 1))
-        self.condition_conv = nn.Conv2d(condition_dim, 256, kernel_size=(1, 1))
-
-    def forward(self, x, timestep_embedding, condition):
-        """
-        Args:
-            x: Input tensor (B, C, H, W)
-            timestep_embedding: Embedded timesteps (B, C, 1, 1)
-            condition: Conditioning input (B, C, H, W)
-
-        Returns:
-            Residual and skip connections
-        """
-        h = self.dilated_conv(x)
-
-        # Apply timestep and condition embeddings
-        h += timestep_embedding
-        if condition is not None:
-            h += self.condition_conv(condition)
-
-        # Gated activation
-        h = self.tanh(h) * self.sigmoid(h)
-
-        # Residual and skip connections
-        residual = self.output_conv(h)
-        return x + residual, residual
-
-
-class _OutputBlock(nn.Module):
-    """Output block for DiffEEG."""
-    def __init__(self, n_channels):
-        super(_OutputBlock, self).__init__()
-        self.skip_conv1 = nn.Conv2d(128, 128, kernel_size=(1, 1))
-        self.relu = nn.ReLU()
-        self.skip_conv2 = nn.Conv2d(128, n_channels, kernel_size=(1, 1))
-
-    def forward(self, skip_connections):
-        """
-        Args:
-            skip_connections: Summed skip connections (B, 128, H, W)
-        Returns:
-            Final output (B, n_channels, H, W)
-        """
-        x = self.skip_conv1(skip_connections)
-        x = self.relu(x)
-        x = self.skip_conv2(x)
-        return x
-
+import numpy as np
+from typing import Tuple, Optional
+from utils.cfg_utils import CFG
 
 class DiffEEG(nn.Module):
-    """Main DiffEEG model."""
-    def __init__(self, n_channels=8, n_residual_layers=128, n_timesteps=1000):
-        super(DiffEEG, self).__init__()
-        self.n_channels = n_channels
-        self.n_residual_layers = n_residual_layers
+    """
+    Diffusion-based EEG augmentation model following the architecture from the paper.
+    """
+    def __init__(self, config = CFG):
+        super().__init__()
+        self.n_classes = config.diffEEG_trainer["n_classes"]
+        self.n_channels = config.diffEEG_trainer["n_channels"]
+        self.hidden_dim = config.diffEEG_trainer["hidden_channels"]
+        self.dropout = config.diffEEG_trainer["dropout"]
+        
+        # Step embedding (Sin-Cos Encoding)
+        self.step_embedding_dim = self.hidden_dim
+        
+        # Class conditioning embedding
+        self.class_embedding = nn.Embedding(self.n_classes, self.hidden_dim)
+        
+        # Spectrogram condition embedding
+        self.spectrogram_embed = nn.Conv1d(self.n_channels, self.hidden_dim, kernel_size=1)
+        
+        
+        # Step embedding (Sin-Cos Encoding + MLP projection)
+        self.step_embedding_dim = self.hidden_dim
+        self.step_embedding_mlp = nn.Sequential(
+            nn.Linear(self.step_embedding_dim, self.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim)
+        )
+        
+        
+        # Spectrogram conditioning: Use 2D Transposed Convolutions for upsampling
+        self.spectrogram_upconv1 = nn.ConvTranspose2d(
+            in_channels=self.n_channels,  # Input channels from spectrogram
+            out_channels=self.hidden_dim // 2,  # Expand feature space
+            kernel_size=(3, 3),  # Small upsampling kernel
+            stride=(2, 2),  # Upsample by 2x
+            padding=1
+        )
+        
+        self.spectrogram_upconv2 = nn.ConvTranspose2d(
+            in_channels=self.hidden_dim // 2,
+            out_channels=self.hidden_dim,  # Match EEG feature space
+            kernel_size=(3, 3),
+            stride=(2, 2),
+            padding=1
+        )
 
-        # Blocks
-        self.input_block = _InputBlock(n_channels)
-        self.step_embedding = _StepEmbedding(n_timesteps)
-        self.condition_block = _ConditionBlock(256)
-        self.residual_blocks = nn.ModuleList([
-            _ResidualBlock(128, dilation=2**i, condition_dim=256) for i in range(n_residual_layers)
-        ])
-        self.output_block = _OutputBlock(n_channels)
+        # Final 1×1 Convolution to match EEG feature space
+        self.spectrogram_embed = nn.Conv2d(
+            in_channels=self.hidden_dim, 
+            out_channels=self.hidden_dim, 
+            kernel_size=1
+        )
+        
+        # Input Block: 1x1 Conv to map EEG into residual space
+        self.input_conv = nn.Conv1d(self.n_channels, self.hidden_dim, kernel_size=1)
+        
+        # Residual Blocks with Bi-DilConv
+        self.res_block1 = self._residual_block(self.hidden_dim, dilation=1, dropout= self.dropout)
+        self.res_block2 = self._residual_block(self.hidden_dim, dilation=2, dropout=self.dropout)
+        self.res_block3 = self._residual_block(self.hidden_dim, dilation=4, dropout=self.dropout)
+        self.res_block4 = self._residual_block(self.hidden_dim, dilation=8, dropout=self.dropout)
+        
+        # Skip Connection Summation
+        self.skip_sum = nn.Conv1d(self.hidden_dim, self.hidden_dim, kernel_size=1)
+        
+        # Output Block: 1x1 Conv to transform back to EEG format
+        self.output_conv = nn.Conv1d(self.hidden_dim, self.n_channels, kernel_size=1)
+    
+    def _residual_block(self, channels, dilation, dropout=0.1):
+        """Bi-Dilated Convolution with Gated Tanh Unit (GTU) and Dropout."""
+        return nn.Sequential(
+            nn.Conv1d(channels, channels, kernel_size=1),
+            nn.Tanh(),
+            nn.Conv1d(channels, channels, kernel_size=3, padding=dilation, dilation=dilation),
+            nn.Sigmoid(),
+            nn.Conv1d(channels, channels, kernel_size=1),
+            nn.Dropout(dropout)  # Add dropout after convolution layers
+        )
+    
+    def sinusoidal_embedding(self, diffusion_step, dim):
+        """Sinusoidal positional encoding for diffusion step + MLP transformation."""
+        half_dim = dim // 2
+        emb = torch.exp(torch.arange(half_dim, device=diffusion_step.device) * -np.log(10000) / (half_dim - 1))
+        emb = diffusion_step * emb
+        emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
 
-    def forward(self, eeg_input, noise, timestep, condition=None):
-        """
+        # Pass through MLP transformation
+        emb = self.step_embedding_mlp(emb)
+
+        return emb
+    
+    
+    def forward(self, x, class_label, diffusion_step, spectrogram):
+        """Forward pass through DiffEEG model.
+
         Args:
-            eeg_input: EEG input (B, C, H, W)
-            noise: Added noise (B, C, H, W)
-            timestep: Timestep tensor (B,)
-            condition: Conditioning input (e.g., STFT features) (B, 1, H, W)
+            x (Tensor): EEG signal (batch_size, n_channels, time_dim)
+            class_label (Tensor): Class label tensor (batch_size,)
+            diffusion_step (Tensor): Diffusion step tensor (batch_size, 1)
+            spectrogram (Tensor): STFT spectrograms (batch_size, n_channels, time_dim)
 
         Returns:
-            Reconstructed EEG signals
+            Tensor: Predicted noise (batch_size, n_channels, time_dim)
         """
-        # Input block
-        x = self.input_block(eeg_input, noise)
+        # Get batch size, channel count, and time dimension
+        batch_size, n_channels, freq_dim, time_dim = spectrogram.shape
+        print(f"Shape of spectrogram before conditional embedding: {spectrogram.shape}")
+        
+        
+        class_label = class_label.long()
 
-        # Step embedding
-        t_emb = self.step_embedding(timestep)
+        # Compute step embedding using sinusoidal encoding
+        step_emb = self.sinusoidal_embedding(diffusion_step, self.step_embedding_dim)
+        step_emb = step_emb.unsqueeze(-1).expand(-1, -1, time_dim)
+        # print(f"Shape of step_emb after sinusoidal embedding: {step_emb.shape}")
 
-        # Condition block
-        if condition is not None:
-            c = self.condition_block(condition)
-        else:
-            c = None
+        # Embed class label
+        class_label = class_label.argmax(dim=1).long()  # Convert one-hot to indices
+        class_emb = self.class_embedding(class_label) 
+        #print(f"Shape after class_embedding: {class_emb.shape}")
+        class_emb = class_emb.unsqueeze(-1)  # [batch_size, hidden_dim, 1]
+        #print(f"Shape after unsqueeze: {class_emb.shape}")
+        class_emb = class_emb.expand(-1, -1, x.shape[-1])  # [batch_size, hidden_dim, 2000] 
+        #print(f"Shape after expansion: {class_emb.shape}")
 
-        # Residual blocks
-        skip_connections = []
-        for layer in self.residual_blocks:
-            x, skip = layer(x, t_emb, c)
-            skip_connections.append(skip)
 
-        # Sum skip connections
-        skip_sum = sum(skip_connections)
+        # # Ensure the correct shape: [batch_size, channels, freq_dim, time_dim]
+        # spectrogram = spectrogram.permute(0, 3, 1, 2)  # Swap last axis to second axis
+        
+        # print(f"Shape of spectrogram after dimension permutation: {spectrogram.shape}")
+        
+        # Apply transposed convolutions to spectrogram
+        spectrogram = self.spectrogram_upconv1(spectrogram)  # Upsample
+        spectrogram = F.relu(spectrogram)  # Non-linearity
+        spectrogram = self.spectrogram_upconv2(spectrogram)  # Further upsample
+        spectrogram = F.relu(spectrogram)  
+        spectrogram = self.spectrogram_embed(spectrogram)  # Final dimension matching
+        
+        # Flatten spectrogram to match EEG shape
+        spectrogram = spectrogram.view(batch_size, self.hidden_dim, -1)  # Convert to (batch, hidden_dim, time)
 
-        # Output block
-        output = self.output_block(skip_sum)
-        return output
+        # Initial EEG feature transformation
+        x = self.input_conv(x) + step_emb + class_emb + spectrogram
+
+        # Residual Block Processing
+        x1 = self.res_block1(x)
+        x2 = self.res_block2(x1)
+        x3 = self.res_block3(x2)
+        x4 = self.res_block4(x3)
+
+        # Skip Connection Summation
+        x = self.skip_sum(x1 + x2 + x3 + x4)
+
+        # Output transformation
+        x = self.output_conv(x)
+
+        return x

@@ -256,4 +256,158 @@
 # if __name__ == "__main__":
 #     gpu = 1
 #     main(gpu)
+if CFG.train_models:
+    oof = np.zeros((len(train), N_CLASSES))
+    prfs = []
+
+    cv = GroupKFold(n_splits=5)
+    for fold, (tr_idx, val_idx) in enumerate(cv.split(train, train[TGT_COL], train["patient_id"])):
+        logger.info(f"== Train and Eval Process - Fold{fold} ==")
+
+        # Build dataloaders
+        data_tr, data_val = train.iloc[tr_idx].reset_index(drop=True), train.iloc[val_idx].reset_index(drop=True)
+        train_loader = DataLoader(
+            EEGDataset({"meta": data_tr, "eeg": all_eegs}, "train", **CFG.dataset),
+            shuffle=CFG.trainer["dataloader"]["shuffle"],
+            batch_size=CFG.trainer["dataloader"]["batch_size"],
+            num_workers=CFG.trainer["dataloader"]["num_workers"]
+        )
+        val_loader = DataLoader(
+            EEGDataset({"meta": data_val, "eeg": all_eegs}, "valid", **CFG.dataset),
+            shuffle=False,
+            batch_size=CFG.trainer["dataloader"]["batch_size"],
+            num_workers=CFG.trainer["dataloader"]["num_workers"]
+        )
+
+
+
+        logger.info(f"Number of samples in train_loader before augmentation: {len(train_loader.dataset)}")
+
+        # print(f"Using device: {CFG["gpu"]})
+        # print(f"train_steps:{train_steps}")
+        # Get one batch
+        batch = next(iter(train_loader))
+
+        # Inspect shapes
+        logger.info("x shape:", batch["x"].shape)  # Should be [B, C=8, T=2000]
+        logger.info("y shape:", batch["y"].shape)  # Should be [B, N_CLASSES]
+            
+        real_data = []
+
+        for batch in train_loader:
+            xs, ys = batch["x"], batch["y"]  # xs: [B, 8, 2000], ys: [B, N_CLASSES]
+            for x, y in zip(xs, ys):
+                real_data.append((x, y))
+        # print(f"Created real data dictionary of shape: {real_data.shape}")
+                
+                
+        generated_data = []
+        gen_data_dir = Path("/data2/users/koushani/HMS_data/kaggle/working/0401-18-02-56/generated_data")  # Where to save .npy files   
+        for class_idx in range(CFG.N_CLASSES):
+            path = gen_data_dir / f"generated_class_{class_idx}.npy"
+            if not path.exists():
+                print(f"Warning: {path} missing")
+                continue
+
+            arr = np.load(path)  # Shape: (N, 8, 2000)
+            
+            # Create one-hot vector for this class
+            target = torch.zeros(CFG.N_CLASSES, dtype=torch.float32)
+            target[class_idx] = 1.0
+
+            for i in range(arr.shape[0]):
+                x = torch.tensor(arr[i], dtype=torch.float32)  # shape: [8, 2000]
+                generated_data.append((x, target.clone()))
+            # print(f"Created generated data with shape: {generated_data.shape}")
+            
+        combined_data = real_data + generated_data
+        combined_data = shuffle(combined_data, random_state=CFG.seed)
+        
+        
     
+            
+        
+        augmented_train_dataset = CombinedEEGDataset(combined_data)
+
+        augmented_train_loader = DataLoader(
+            augmented_train_dataset,
+            shuffle=True,
+            batch_size=CFG.diffEEG_trainer["batch_size"],
+            num_workers=CFG.diffEEG_trainer["num_workers"]
+        )
+        
+        logger.info(f"Number of samples in augmented_train_loader: {len(augmented_train_loader.dataset)}")
+        
+        batch_aug = next(iter(augmented_train_loader))
+        logger.info("Augmented x shape:", batch_aug["x"].shape)
+        logger.info("Augmented y shape:", batch_aug["y"].shape)
+
+
+
+        # Build model
+        logger.info(f"Build model...")
+        model = DilatedInceptionWaveNet()
+        model.to(CFG.device)
+
+        # Build criterion
+        loss_fn = KLDivWithLogitsLoss()
+
+        # Build solvers
+        optimizer = torch.optim.Adam(model.parameters(), lr=CFG.trainer["lr"])
+        num_training_steps = (
+            math.ceil(
+                len(train_loader.dataset)
+                / (CFG.trainer["dataloader"]["batch_size"] * CFG.trainer["grad_accum_steps"])
+            )
+            * CFG.trainer["epochs"]
+        )
+        lr_skd = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=num_training_steps)
+
+        # Build evaluator
+        evaluator = Evaluator(metric_names=["kldiv"])
+
+        # Build trainer
+        trainer: _BaseTrainer = None
+        trainer = MainTrainer(
+            logger=logger,
+            trainer_cfg=CFG.trainer,
+            model=model,
+            loss_fn=loss_fn,
+            optimizer=optimizer,
+            lr_skd=lr_skd,
+            ckpt_path=CFG.exp_dump_path,
+            evaluator=evaluator,
+            scaler=None,
+            train_loader=train_loader,
+            eval_loader=val_loader,
+            use_wandb=False
+        )
+
+        # Run main training and evaluation for one fold
+        y_preds = trainer.train_eval(fold)
+        oof[val_idx, :] = y_preds["val"]
+
+        # Dump output objects
+        for model_path in CFG.exp_dump_path.glob("*.pth"):
+            if "seed" in str(model_path) or "fold" in str(model_path):
+                continue
+
+            # Rename model file
+            model_file_name_dst = f"{model_path.stem}_fold{fold}.pth"
+            model_path_dst = exp.ckpt_path / model_file_name_dst
+            model_path.rename(model_path_dst)
+
+        # Free mem.
+        del (data_tr, data_val, train_loader, val_loader, model, optimizer, lr_skd, evaluator, trainer)
+        _ = gc.collect()
+
+        if CFG.one_fold_only:
+            logger.info("Cross-validatoin stops at first fold!!!")
+            break
+
+    np.save(CFG.exp_dump_pat / "oof.npy", oof)
+else:
+    file_path = DATA_PATH / "kaggle/input/hms-oof-demo/oof_seed0.npy"
+    print(f"Checking file path: {file_path}")
+    print(f"File exists: {os.path.exists(file_path)}")
+    oof = np.load(file_path)
